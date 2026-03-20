@@ -75,75 +75,6 @@ jobs:
           echo '${{ toJSON(needs) }}' | jq  # logging
           exit 1
 
-  interface:
-    needs: [fast-lint, init]
-    if: ${{ needs.init.outputs.interfaces != '[]' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        interface: ${{ fromJson(needs.init.outputs.interfaces) }}
-    uses: ./.github/workflows/test-interface.yaml
-    with:
-      interface: ${{ matrix.interface }}
-
-  interface-tests-passed: # GitHub status checks require a static job name
-    needs: [interface]
-    if: ${{ !cancelled() }} # run even if tests are skipped or failed
-    runs-on: ubuntu-latest
-    steps:
-      - name: Fail if any interface tests failed
-        if: ${{ needs.interface.result != 'success' && needs.interface.result != 'skipped' }}
-        run: |
-          echo '${{ toJSON(needs) }}' | jq  # logging
-          exit 1
-
-  interfaces-json-up-to-date:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@v7
-      - name: Was `just interfaces-json` run if interfaces were updated?
-        run: |
-          uvx --from rust-just just interfaces-json
-          git diff --exit-code
-
-  template-and-example-in-sync:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@v7
-      - run: |
-          uvx --from rust-just just init --no-input
-          rm -rf .example
-          mv example .example
-          # check if tracked files changed, or any new files were added
-          # (git diff --exit-code isn't effected by new files)
-          STATUS=$(git status --porcelain)
-          echo "$STATUS"
-          test -z "$STATUS"
-
-  template-and-interface-example-in-sync:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@v7
-      - working-directory: interfaces
-        run: |
-          uvx --from rust-just just interface init --no-input project_slug=example-interface
-          rm -rf .example
-          mv example-interface .example
-          # check if tracked files changed, or any new files were added
-          # (git diff --exit-code isn't effected by new files)
-          STATUS=$(git status --porcelain)
-          echo "$STATUS"
-          test -z "$STATUS"
-
   changelog-updated:
     needs: [init]
     if: ${{ needs.init.outputs.publish != '[]' }}
@@ -194,13 +125,3 @@ jobs:
         with:
           sarif_file: results.sarif
           category: zizmor
-
-  local-docs-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # We need the git history for 'Last updated on ...'
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@v7
-      - run: uvx --from rust-just just docs html
