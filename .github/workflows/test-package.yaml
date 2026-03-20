@@ -1,0 +1,178 @@
+name: Test a package
+# runs tests for specified package
+# always runs static tests
+# runs unit, and integration tests if the package implements them
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        required: true
+        type: string
+      skip-juju:
+        required: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package (by path) to run tests for.
+        required: true
+        type: string
+      skip-juju:
+        description: Skip Juju integration tests.
+        required: false
+        type: boolean
+
+permissions: {}
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.tests.outputs.tests }}
+      python: ${{ steps.python.outputs.versions }}
+      min_python_version: ${{ steps.python.outputs.min_version }}
+      integration-substrates: ${{ steps.integration-substrates.outputs.substrates }}
+      integration-tags: ${{ steps.integration-tags.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Ensure package uv.lock is up-to-date
+        working-directory: ${{ inputs.package }}
+        run: |
+          case "$(basename "$PWD")" in
+            ".example"|".tutorial") echo "Examples don't have a uv.lock file, skipping ..." ;;
+            *) uv lock --check ;;
+          esac
+
+      - name: Check which test suites this package has
+        id: tests
+        run: |
+          tests=()
+          for test in unit integration; do
+            if [ -d ${{ inputs.package }}/tests/$test ]; then
+              tests+=($test)
+            fi
+          done
+          js=$(jq '$ARGS.positional' --null-input --compact-output --args "${tests[@]}")
+          echo "tests=$js"
+          echo "tests=$js" >> "$GITHUB_OUTPUT"
+
+      - name: Check substrates needed for integration tests
+        id: integration-substrates
+        if: contains(fromJson(steps.tests.outputs.tests), 'integration')
+        env:
+          PACKAGE: ${{ inputs.package }}
+          PYTHON: ${{ steps.python.outputs.min_version }}
+        run: |
+          set -x  # print lines before executing them
+          substrates=()
+          for substrate in k8s machine; do
+            set +e  # don't abort if the next process has a non-zero exit code
+            uvx --from rust-just just python="$PYTHON" integration-$substrate "$PACKAGE" --collect-only -q
+            case $? in
+                0) substrates+=($substrate);;
+                5) echo "No tests for $substrate";;
+                *) echo "Unexpected exit code $?"; exit 1;;
+            esac
+            set -e  # return to aborting if processes fail
+          done
+          js=$(jq '$ARGS.positional' --null-input --compact-output --args "${substrates[@]}")
+          echo "substrates=$js"
+          echo "substrates=$js" >> "$GITHUB_OUTPUT"
+
+      - name: Check tags to run integration tests with
+        id: integration-tags
+        if: contains(fromJson(steps.tests.outputs.tests), 'integration')
+        shell: python
+        run: |
+          import json, os, pathlib, tomllib
+          pyproject_toml = tomllib.loads(pathlib.Path('${{ inputs.package }}', 'pyproject.toml').read_text())
+          tags = pyproject_toml.get('tool', {}).get('dpcharmlibs', {}).get('integration', {}).get('tags') or ['']
+          line = f'tags={json.dumps(tags)}'
+          print(line)
+          with pathlib.Path(os.environ['GITHUB_OUTPUT']).open('a') as f:
+            print(line, file=f)
+
+  lint:
+    needs: init
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ${{ fromJson(needs.init.outputs.python) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Run static analysis and other checks
+        run: uvx --from rust-just just python=${{ matrix.python }} lint ${{ inputs.package }}
+
+  unit:
+    needs: init
+    if: contains(fromJson(needs.init.outputs.tests), 'unit')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ${{ fromJson(needs.init.outputs.python) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Run unit tests
+        run: uvx --from rust-just just python=${{ matrix.python }} unit ${{ inputs.package }}
+
+  integration:
+    needs: init
+    if: contains(fromJson(needs.init.outputs.tests), 'integration') && !inputs.skip-juju
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJson(needs.init.outputs.integration-tags) }}
+        substrate: ${{ fromJson(needs.init.outputs.integration-substrates) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install concierge
+        run: sudo snap install --classic concierge
+
+      - name: Prepare Juju for microk8s
+        if: ${{ matrix.substrate == 'k8s' }}
+        run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=3.x/stable -p microk8s
+
+      - name: Prepare Juju for machine
+        if: ${{ matrix.substrate == 'machine' }}
+        run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=3.x/stable -p machine
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Pack charms
+        if: ${{ hashFiles(format('{0}/tests/integration/pack.sh', inputs.package)) != '' }}
+        run: uvx --from rust-just just tag='${{ matrix.tag }}' pack-${{ matrix.substrate }} ${{ inputs.package }}
+
+      - name: Run Juju integration tests
+        env:
+          PACKAGE: ${{ inputs.package }}
+          PYTHON: ${{ needs.init.outputs.min_python_version }}
+          RECIPE: integration-${{ matrix.substrate }}
+          TAG: ${{ matrix.tag }}
+        run: uvx --from rust-just just python="$PYTHON" tag="$TAG" "$RECIPE" "$PACKAGE"
