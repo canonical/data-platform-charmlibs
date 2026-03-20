@@ -1,0 +1,206 @@
+name: CI
+# runs linting for whole repository, and:
+# on PR: runs tests for packages and interfaces with changes (or all if global files are changed)
+# on push to main or on dipatch: runs tests for all packages and interfaces
+
+on:
+  #push:
+  #  branches:
+  #    # NOTE: the workflow runs from the current branch
+  #    # only the branch name matching the current branch actually matters
+  #    # but we list them all to minimise the diff across branches
+  #    - "main"
+  #    - "*-maintenance"
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  fast-lint:
+    uses: ./.github/workflows/fast-lint.yaml
+
+  init:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.result }}
+      interfaces: ${{ steps.interfaces.outputs.result }}
+      publish: ${{ steps.publish.outputs.result }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate reference for git diff
+        id: ref
+        if: github.event_name == 'pull_request'
+        run: |
+          set -xueo pipefail
+          echo "result=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: astral-sh/setup-uv@v7
+      - name: Collect changed packages
+        id: packages
+        run: .github/get-changed.py packages ${{ steps.ref.outputs.result }}
+      - name: Collect packages that would be published on merge
+        id: publish
+        run: |
+          set -xueo pipefail
+          if [ ${{ github.event_name }} = 'pull_request' ]; then
+            PACKAGES=$(.scripts/ls.py packages ${{ steps.ref.outputs.result }} --exclude-examples --exclude-placeholders --only-if-version-changed)
+          else
+            PACKAGES='[]'
+          fi
+          echo "$PACKAGES" | jq  # logging
+          echo "result=$PACKAGES" >> $GITHUB_OUTPUT
+
+  package:
+    needs: [fast-lint, init]
+    if: ${{ needs.init.outputs.packages != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.init.outputs.packages) }}
+    uses: ./.github/workflows/test-package.yaml
+    with:
+      package: ${{ matrix.package }}
+
+  package-tests-passed: # GitHub status checks require a static job name
+    needs: [package]
+    if: ${{ !cancelled() }} # run even if tests are skipped or failed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any tests failed
+        if: ${{ needs.package.result != 'success' && needs.package.result != 'skipped' }}
+        run: |
+          echo '${{ toJSON(needs) }}' | jq  # logging
+          exit 1
+
+  interface:
+    needs: [fast-lint, init]
+    if: ${{ needs.init.outputs.interfaces != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        interface: ${{ fromJson(needs.init.outputs.interfaces) }}
+    uses: ./.github/workflows/test-interface.yaml
+    with:
+      interface: ${{ matrix.interface }}
+
+  interface-tests-passed: # GitHub status checks require a static job name
+    needs: [interface]
+    if: ${{ !cancelled() }} # run even if tests are skipped or failed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any interface tests failed
+        if: ${{ needs.interface.result != 'success' && needs.interface.result != 'skipped' }}
+        run: |
+          echo '${{ toJSON(needs) }}' | jq  # logging
+          exit 1
+
+  interfaces-json-up-to-date:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - name: Was `just interfaces-json` run if interfaces were updated?
+        run: |
+          uvx --from rust-just just interfaces-json
+          git diff --exit-code
+
+  template-and-example-in-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: |
+          uvx --from rust-just just init --no-input
+          rm -rf .example
+          mv example .example
+          # check if tracked files changed, or any new files were added
+          # (git diff --exit-code isn't effected by new files)
+          STATUS=$(git status --porcelain)
+          echo "$STATUS"
+          test -z "$STATUS"
+
+  template-and-interface-example-in-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - working-directory: interfaces
+        run: |
+          uvx --from rust-just just interface init --no-input project_slug=example-interface
+          rm -rf .example
+          mv example-interface .example
+          # check if tracked files changed, or any new files were added
+          # (git diff --exit-code isn't effected by new files)
+          STATUS=$(git status --porcelain)
+          echo "$STATUS"
+          test -z "$STATUS"
+
+  changelog-updated:
+    needs: [init]
+    if: ${{ needs.init.outputs.publish != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.init.outputs.publish) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Ensure CHANGELOG.md has been updated
+        run: |
+          set -xueo pipefail
+          if git diff --name-only ${{ github.event.pull_request.base.sha }} | grep -q '^${{ matrix.package }}/CHANGELOG.md$'; then
+            : 'CHANGELOG.md updated :)'
+          else
+            : 'CHANGELOG.md must be updated before merging :('
+            exit 1
+          fi
+
+  changelogs-updated-if-releasing: # GitHub status checks require a static job name
+    needs: [changelog-updated]
+    if: ${{ !cancelled() }} # run even if checks are skipped or failed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required changelogs are not updated
+        if: ${{ needs.changelog-updated.result != 'success' && needs.changelog-updated.result != 'skipped' }}
+        run: |
+          echo '${{ toJSON(needs) }}' | jq  # logging
+          exit 1
+
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: uvx zizmor@v1.11.0 --format=sarif . > results.sarif
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif
+          category: zizmor
+
+  local-docs-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # We need the git history for 'Last updated on ...'
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: uvx --from rust-just just docs html

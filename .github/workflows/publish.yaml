@@ -1,0 +1,95 @@
+name: Publish
+
+on:
+  # FIXME: Enable publication to main when ready.
+  #push:
+  #  branches:
+  #    # NOTE: the workflow runs from the current branch
+  #    # only the branch name matching the current branch actually matters
+  #    # but we list them all to minimise the diff across branches
+  #    - "main"
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package to be published to test.pypi.org
+        required: true
+        type: string
+      skip-juju:
+        description: Skip Juju integration tests
+        required: false
+        type: boolean
+
+permissions: {}
+
+jobs:
+  unify-inputs:
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.main.outputs.include }}
+      skip-juju: ${{ steps.main.outputs.skip-juju }}
+      repository-url: ${{ steps.main.outputs.repository-url }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - id: main
+        run: uv run --no-project --script .github/unify-publish-inputs.py
+
+  test-package:
+    needs: unify-inputs
+    if: ${{ needs.unify-inputs.outputs.include != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.unify-inputs.outputs.include) }}
+    uses: ./.github/workflows/test-package.yaml
+    with:
+      package: ${{ matrix.package }}
+      skip-juju: ${{ fromJSON(needs.unify-inputs.outputs.skip-juju) }}
+
+  build-n-publish:
+    needs: [unify-inputs, test-package]
+    if: ${{ needs.unify-inputs.outputs.include != '[]' }}
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.unify-inputs.outputs.include) }}
+    name: Build and publish ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: write # needed to push tag
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: true # needed to push tag
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false # avoid cache poisoning when publishing
+      - name: Build
+        run: uv build
+        working-directory: ./${{ matrix.package }}
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4.1.0
+        with:
+          subject-path: "${{ matrix.package }}/dist/*"
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ./${{ matrix.package }}/dist/
+          repository-url: ${{ needs.unify-inputs.outputs.repository-url }}
+          verbose: true
+      - name: Tag
+        if: ${{ matrix.tag }}
+        run: |
+          set -xueo pipefail
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git tag ${{ matrix.tag }}
+          git push origin ${{ matrix.tag }}
