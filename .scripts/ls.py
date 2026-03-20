@@ -277,10 +277,10 @@ def _get_description(root: pathlib.Path, path: pathlib.Path) -> str:
 def _get_lib_name(root: pathlib.Path, path: pathlib.Path) -> str:
     if path.name == '.package':
         # .package -> () -> 'charmlibs'
-        # interfaces/.package -> ('interfaces') -> 'charmlibs.interface'
+        # interfaces/.package -> ('interfaces') -> 'dpcharmlibs.interface'
         parts, _ = path.parts
     else:
-        # For special cases like '.tutorial' -> ('tutorial') -> 'charmlibs.tutorial'
+        # For special cases like '.tutorial' -> ('tutorial') -> 'dpcharmlibs.tutorial'
         parts = tuple(p.removeprefix('.') for p in path.parts)
     return '.'.join(('dpcharmlibs', *parts)).replace('-', '_')
 
