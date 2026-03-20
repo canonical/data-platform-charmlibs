@@ -19,6 +19,6 @@ For more information, see the PyPI page at https://pypi.org/project/dpcharmlibs
 
 import warnings
 
-__version__ = '1.0.0a1'
+__version__ = '1.0.0a2'
 
 warnings.warn('This package should not be installed.', stacklevel=1)

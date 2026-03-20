@@ -29,10 +29,8 @@ def _main() -> None:
     if event_name == 'push':
         cmd = [
             '.scripts/ls.py',
-            'packages',
             event['before'],
             os.environ['GITHUB_SHA'],
-            '--exclude-examples',
             '--only-if-version-changed',
             '--output=path',
             '--output=name',
