@@ -1,0 +1,15 @@
+version = 1
+revision = 3
+requires-python = ">=3.10"
+
+[[package]]
+name = "dpcharmlibs"
+source = { editable = "." }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+functional = []
+integration = []
+lint = []
+unit = []

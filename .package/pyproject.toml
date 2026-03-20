@@ -1,0 +1,35 @@
+[project]
+name = "dpcharmlibs"
+description = "The dpcharmlibs namespace. This package should not be installed."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name="The Data Platform team at Canonical Ltd."},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Development Status :: 5 - Production/Stable",
+]
+dynamic = ["version"]
+
+[dependency-groups]
+lint = []
+unit = []
+functional = []
+integration = []
+
+[project.urls]
+"Repository" = "https://github.com/canonical/data-platform-charmlibs"
+"Issues" = "https://github.com/canonical/data-platform-charmlibs/issues"
+
+[build-system]
+requires = [
+    "setuptools>=60",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "dpcharmlibs.__version__"}
