@@ -38,21 +38,17 @@ def _main() -> None:
         ]
         items = json.loads(subprocess.check_output(cmd, text=True))
         include = [{'package': item['path'], 'tag': _get_tag(item)} for item in items]
-        _output(
-            {
-                'include': json.dumps(include),
-                'skip-juju': 'false',
-                'repository-url': 'https://upload.pypi.org/legacy/',
-            }
-        )
+        _output({
+            'include': json.dumps(include),
+            'skip-juju': 'false',
+            'repository-url': 'https://upload.pypi.org/legacy/',
+        })
     elif event_name == 'workflow_dispatch':
-        _output(
-            {
-                'include': json.dumps([{'package': event['inputs']['package'], 'tag': ''}]),
-                'skip-juju': event['inputs']['skip-juju'],
-                'repository-url': 'https://test.pypi.org/legacy/',
-            }
-        )
+        _output({
+            'include': json.dumps([{'package': event['inputs']['package'], 'tag': ''}]),
+            'skip-juju': event['inputs']['skip-juju'],
+            'repository-url': 'https://test.pypi.org/legacy/',
+        })
     else:
         print(f'Unexpected event name: {event_name}')
         sys.exit(1)
