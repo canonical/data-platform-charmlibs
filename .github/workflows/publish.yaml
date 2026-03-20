@@ -1,13 +1,12 @@
 name: Publish
 
 on:
-  # FIXME: Enable publication to main when ready.
-  #push:
-  #  branches:
-  #    # NOTE: the workflow runs from the current branch
-  #    # only the branch name matching the current branch actually matters
-  #    # but we list them all to minimise the diff across branches
-  #    - "main"
+  push:
+    branches:
+      # NOTE: the workflow runs from the current branch
+      # only the branch name matching the current branch actually matters
+      # but we list them all to minimise the diff across branches
+      - "main"
   workflow_dispatch:
     inputs:
       package:
