@@ -1,0 +1,190 @@
+[project]
+name = "data-platform-charmlibs-monorepo"
+requires-python = '>=3.10'
+version = "0.0.0-dev0"
+
+[dependency-groups]
+fast-lint = [
+    "codespell==2.3.0",
+    "ruff==0.11.0",
+]
+
+[tool.uv]
+package=false
+
+[tool.coverage.run]
+dynamic_context = "test_function"
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if typing.TYPE_CHECKING:",
+    "@typing.overload",
+    "class .*\\(typing.Protocol\\):",
+    "\"\"\"",
+]
+
+# Linting tools configuration
+[tool.ruff]
+line-length = 99
+target-version = "py310"
+exclude = [
+    # These are the default values of ruff's exclude
+    # they're duplicated here instead of using extend-exclude
+    # so that libraries can use extend-exclude.
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "dist",
+    "node_modules",
+    "venv",
+    # These are the custom excludes specified by this repo.
+    "__pycache__",
+    "*.egg_info",
+    "htmlcov",
+    ".docs/.sphinx",
+    ".docs/conf.py",
+    ".template/\\{\\{ cookiecutter.project_slug \\}\\}",
+]
+
+# Ruff formatter configuration
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = [
+    # flake8-builtins
+    "A",
+    # flake8-bugbear
+    "B",
+    # pyflakes-docstrings
+    "D",
+    # conventional names
+    "C",
+    # flake8-copyright
+    "CPY",
+    # Pycodestyle (error)
+    "E",
+    # Pyflakes
+    "F",
+    # flake8-logging-format
+    "G",
+    # isort
+    "I001",
+    # pep8-naming
+    "N",
+    # Perflint
+    "PERF",
+    # Ruff specific
+    "RUF",
+    # flake8-bandit
+    "S",
+    # flake8-simplify
+    "SIM",
+    # flake8-type-checking
+    "TC",
+    # pyupgrade
+    "UP",
+    # Pycodestyle (warning)
+    "W",
+    # flake8-2020
+    "YTT",
+]
+ignore = [
+    # mccabe
+    "C90",
+    # Missing docstring in magic method
+    "D105",
+    # Missing docstring in `__init__`
+    "D107",
+    # Use of `assert` detected
+    "S101",
+    # `subprocess` module is possibly insecure
+    "S404",
+    # subprocess-without-shell-equals-true
+    # S602 complains if shell is True, which is considered worse due to potential shell exploits
+    # difficult to avoid without noqa, which then becomes meaningless boilerplate every time
+    "S603",
+    # start-process-with-partial-path
+    # wants an absolute path to the executable as the first argument
+    # seems impractical, so also results in noqa boilerplate
+    "S607",
+    # Return condition directly, prefer readability.
+    "SIM103",
+    # Use contextlib.suppress() instead of try/except: pass
+    "SIM105",
+    # Use a single `with` statement with multiple contexts instead of nested `with` statements
+    "SIM117",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"./**/tests/*" = [
+    # All documentation linting.
+    "D",
+
+    # Hard-coded password string.
+    "S105",
+    # Hard-coded password function argument.
+    "S106",
+
+    # "Useless" expression.
+    "B018",
+
+    # Redefinition of unused (we import fixtures)
+    "F811",
+
+    # Setting a permissive mask on a file or directory
+    "S103",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.codespell]
+check-hidden = true
+quiet-level = 3  # disable warnings about (1) wrong encoding + (2) binary files
+ignore-regex = "(?:[A-Za-z0-9+/]|\\\\n){100,}"  # ignore long base64 strings (including Python \n)
+ignore-words-list = [  # temporary until we add a per-library solution
+    "aNULL"
+]
+skip = [
+    ".docs",
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".report",
+    ".ruff_cache",
+    ".tox",
+    ".venv*",
+    ".vscode",
+    "build",
+]
+
+[tool.pyright]
+pythonPlatform = "All"
+typeCheckingMode = "strict"
+reportPrivateUsage = false  # things that are effectively public still need to be private to users
+reportUnnecessaryTypeIgnoreComment = "error"  # unnecessary ignores should be removed
+stubPath = ""  # silence warning: https://github.com/microsoft/pyright/issues/777
+
+[tool.pytest.ini_options]
+addopts = ["--strict-markers"]
+markers = [
+    "k8s_only: integration tests that should only run with a K8s Juju cloud",
+    "machine_only: integration tests that should only run with a machine Juju cloud",
+]
