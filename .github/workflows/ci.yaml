@@ -55,7 +55,7 @@ jobs:
 
   package:
     needs: [fast-lint, init]
-    if: ${{ needs.init.outputs.packages != '[]' }}
+    if: ${{ needs.init.outputs.packages != '[".package"]' && needs.init.outputs.packages != '[]'}}
     strategy:
       fail-fast: false
       matrix:
