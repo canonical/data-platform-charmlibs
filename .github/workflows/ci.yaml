@@ -40,7 +40,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - name: Collect changed packages
         id: packages
-        run: .github/get-changed.py packages ${{ steps.ref.outputs.result }}
+        run: .github/get-changed.py ${{ steps.ref.outputs.result }}
       - name: Collect packages that would be published on merge
         id: publish
         run: |
