@@ -27,7 +27,7 @@ exclude_also = [
 
 # Linting tools configuration
 [tool.ruff]
-line-length = 99
+line-length = 110
 target-version = "py310"
 exclude = [
     # These are the default values of ruff's exclude
@@ -106,6 +106,7 @@ select = [
     "YTT",
 ]
 ignore = [
+    "G004",
     # mccabe
     "C90",
     # Missing docstring in magic method
@@ -124,12 +125,17 @@ ignore = [
     # wants an absolute path to the executable as the first argument
     # seems impractical, so also results in noqa boilerplate
     "S607",
+
+    "SIM102",
     # Return condition directly, prefer readability.
     "SIM103",
     # Use contextlib.suppress() instead of try/except: pass
     "SIM105",
     # Use a single `with` statement with multiple contexts instead of nested `with` statements
     "SIM117",
+
+    # Shardowing
+    "RUF052",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -150,6 +156,18 @@ ignore = [
 
     # Setting a permissive mask on a file or directory
     "S103",
+    "S605",
+    "S602",
+
+    # f-string logging
+    "G004",
+
+    # Docstrings too long
+    "E501",
+    "PERF",
+    "SIM",
+    "RUF052",
+    "RUF015",
 ]
 
 [tool.ruff.lint.pydocstyle]

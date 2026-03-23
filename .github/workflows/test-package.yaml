@@ -76,21 +76,24 @@ jobs:
           PYTHON: ${{ steps.python.outputs.min_version }}
         run: |
           set -x  # print lines before executing them
-          substrates=()
+          substrates="[]"
           for substrate in k8s machine; do
             set +e  # don't abort if the next process has a non-zero exit code
-            uvx --from rust-just just python="$PYTHON" integration-$substrate "$PACKAGE" --collect-only -q
+            uvx --from rust-just just python="${PYTHON}" integration-$substrate "${PACKAGE}" --collect-only -qqqq > .collected
             case $? in
-                0) substrates+=($substrate);;
+                0) for line in $(cut -d":" -f1 .collected); do
+                     log_file=${line##*/}
+                     substrates_bis=$(echo $substrates | jq --arg log "$log_file" --arg subs "$substrate" --arg file "$line" '. +=[{"substrate": $subs, "file": $file, "log": $log}]');
+                     substrates=$substrates_bis;
+                   done;;
                 5) echo "No tests for $substrate";;
                 *) echo "Unexpected exit code $?"; exit 1;;
             esac
             set -e  # return to aborting if processes fail
-          done
-          js=$(jq '$ARGS.positional' --null-input --compact-output --args "${substrates[@]}")
-          echo "substrates=$js"
-          echo "substrates=$js" >> "$GITHUB_OUTPUT"
-
+          done;
+          subs=$(echo $substrates | jq -r tostring)
+          echo "substrates=$subs"
+          echo "substrates=$(printf '%s' $subs)" >> "$GITHUB_OUTPUT"
       - name: Check tags to run integration tests with
         id: integration-tags
         if: contains(fromJson(steps.tests.outputs.tests), 'integration')
@@ -141,15 +144,83 @@ jobs:
       - name: Run unit tests
         run: uvx --from rust-just just python=${{ matrix.python }} unit ${{ inputs.package }}
 
-  integration:
+  collect-charms:
     needs: init
+    if: contains(fromJson(needs.init.outputs.tests), 'integration') && !inputs.skip-juju
+    runs-on: ubuntu-latest
+    outputs:
+      charms: ${{ steps.collect.outputs.charms }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Collect charms
+        id: collect
+        run: |
+          set -x  # print lines before executing them
+          charms=()
+          pushd $PACKAGE/tests/integration/charms
+          for charm in $(find . -maxdepth 1 -mindepth 1 -type d); do
+            charms+=(${charm##*/})
+          done
+          jc=$(jq '$ARGS.positional' --null-input --compact-output --args "${charms[@]}")
+          echo "charms=$jc"
+          echo "charms=$jc" >> "$GITHUB_OUTPUT"
+        env:
+          PACKAGE: ${{ inputs.package }}
+
+  package-charms:
+    needs: [init, collect-charms]
+    if: contains(fromJson(needs.init.outputs.tests), 'integration') && !inputs.skip-juju
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        charm: ${{ fromJson(needs.collect-charms.outputs.charms) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install lxd and charmcraft
+        run: |
+          sudo snap install lxd
+
+          sudo adduser "$USER" lxd
+          # `newgrp` does not work in GitHub Actions; use `sudo --user` instead
+          sudo --user "$USER" --preserve-env --preserve-env=PATH -- env -- lxd waitready
+          sudo --user "$USER" --preserve-env --preserve-env=PATH -- env -- lxd init --auto
+          # Workaround for Docker & LXD on same machine
+          sudo iptables -F FORWARD
+          sudo iptables -P FORWARD ACCEPT
+
+          sudo snap install charmcraft --classic --channel 3.x/stable
+      - name: Pack charms
+        run: sudo --user "$USER" --preserve-env --preserve-env=PATH -- env -- uvx --from rust-just just pack "$PACKAGE" "$CHARM"
+        env:
+          PACKAGE: ${{ inputs.package }}
+          CHARM: ${{ matrix.charm }}
+      - run: touch .empty
+      - name: Upload charm
+        uses: actions/upload-artifact@v6
+        with:
+          name: packed-charm-${{ inputs.package }}-${{ matrix.charm }}
+          path: |
+            ${{ inputs.package }}/tests/integration/.packed/*.charm
+            .empty
+          if-no-files-found: error
+          include-hidden-files: true
+
+  integration:
+    needs: [init, collect-charms, package-charms]
     if: contains(fromJson(needs.init.outputs.tests), 'integration') && !inputs.skip-juju
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         tag: ${{ fromJson(needs.init.outputs.integration-tags) }}
-        substrate: ${{ fromJson(needs.init.outputs.integration-substrates) }}
+        tests: ${{ fromJson(needs.init.outputs.integration-substrates) }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -159,24 +230,56 @@ jobs:
         run: sudo snap install --classic concierge
 
       - name: Prepare Juju for microk8s
-        if: ${{ matrix.substrate == 'k8s' }}
+        if: ${{ matrix.tests.substrate == 'k8s' }}
         run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=3.x/stable -p microk8s
 
       - name: Prepare Juju for machine
-        if: ${{ matrix.substrate == 'machine' }}
+        if: ${{ matrix.tests.substrate == 'machine' }}
         run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=3.x/stable -p machine
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Pack charms
-        if: ${{ hashFiles(format('{0}/tests/integration/pack.sh', inputs.package)) != '' }}
-        run: uvx --from rust-just just tag='${{ matrix.tag }}' pack-${{ matrix.substrate }} ${{ inputs.package }}
+      - name: Download charms
+        uses: actions/download-artifact@v6
+        timeout-minutes: 5
+        with:
+          pattern: packed-charm-*
+          merge-multiple: true
 
       - name: Run Juju integration tests
+        id: integ_test
         env:
           PACKAGE: ${{ inputs.package }}
           PYTHON: ${{ needs.init.outputs.min_python_version }}
-          RECIPE: integration-${{ matrix.substrate }}
+          RECIPE: integration-${{ matrix.tests.substrate }}
           TAG: ${{ matrix.tag }}
-        run: uvx --from rust-just just python="$PYTHON" tag="$TAG" "$RECIPE" "$PACKAGE"
+          FILE: ${{ matrix.tests.file }}
+        run: uvx --from rust-just just file="$FILE" python="$PYTHON" tag="$TAG" "$RECIPE" "$PACKAGE" --model testing --keep-models --log-cli-level=INFO
+
+      - name: Select model
+        timeout-minutes: 1
+        if: ${{ (success() || (failure() && steps.integ_test.outcome == 'failure')) }}
+        id: juju-switch
+        run: |
+          juju switch testing
+          mkdir ~/logs/
+
+      - name: juju status
+        timeout-minutes: 1
+        if: ${{ success() || (failure() && steps.integ_test.outcome == 'failure') }}
+        run: juju status --color --relations | tee ~/logs/juju-status.txt
+
+      - name: juju debug-log
+        timeout-minutes: 3
+        if: ${{ success() || (failure() && steps.integ_test.outcome == 'failure') }}
+        run: juju debug-log --color --replay --no-tail | tee ~/logs/juju-debug-log.txt
+
+      - name: Upload logs
+        timeout-minutes: 5
+        if: ${{ success() || (failure() && steps.integ_test.outcome == 'failure') }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: logs-integration-test-${{ matrix.tests.substrate }}-${{ matrix.tests.log }}
+          path: ~/logs/
+          if-no-files-found: error

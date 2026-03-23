@@ -177,3 +177,8 @@ cython_debug/
 
 # temporary directory for packing charms
 .tmp
+
+# file for storing tests.
+.collected
+
+!**/charms/*/lib/

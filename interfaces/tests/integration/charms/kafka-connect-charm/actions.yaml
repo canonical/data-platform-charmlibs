@@ -1,0 +1,15 @@
+# Copyright 2026 Canonical Ltd.
+lib-version:
+
+sync:
+  description: Change Kafka Connect provider username/password/endpoints.
+  params:
+    key:
+      type: string
+      description: |
+        one of the following values: username | password | endpoints
+    value:
+      type: string
+      description: New username/password/endpoints.
+  required: [key, value]
+

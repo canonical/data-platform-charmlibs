@@ -2,6 +2,9 @@ name: CI
 # runs linting for whole repository, and:
 # on PR: runs tests for packages and interfaces with changes (or all if global files are changed)
 # on push to main or on dipatch: runs tests for all packages and interfaces
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 on:
   push:
@@ -46,12 +49,14 @@ jobs:
         run: |
           set -xueo pipefail
           if [ ${{ github.event_name }} = 'pull_request' ]; then
-            PACKAGES=$(.scripts/ls.py packages ${{ steps.ref.outputs.result }} --exclude-examples --exclude-placeholders --only-if-version-changed)
+            PACKAGES=$(.scripts/ls.py ${RESULT} --exclude-placeholders --only-if-version-changed)
           else
             PACKAGES='[]'
           fi
           echo "$PACKAGES" | jq  # logging
           echo "result=$PACKAGES" >> $GITHUB_OUTPUT
+        env:
+          RESULT: ${{ steps.ref.outputs.result }}
 
   package:
     needs: [fast-lint, init]

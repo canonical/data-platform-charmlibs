@@ -1,0 +1,25 @@
+# common charmcraft.yaml file symlinked by these charms
+# k8s charms can define containers + resources in metadata.yaml
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  charm:
+    source: .
+    plugin: uv
+    build-snaps: [astral-uv]
+    build-packages: [libpq-dev]
+
+  
+  libpq:
+    build-packages:
+      - libpq-dev
+    plugin: dump
+    source: /usr/lib/
+    source-type: local
+    stage:
+      - lib/
+    organize:
+      "*-linux-gnu/libpq.so*": lib/
