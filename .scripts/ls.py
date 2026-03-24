@@ -80,9 +80,7 @@ def _main() -> None:
     parser.add_argument('--indent-json', action='store_true')
     parser.add_argument('--regex', default=None)
     group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        '--output', action='append', choices=[f.name for f in dataclasses.fields(Info)]
-    )
+    group.add_argument('--output', action='append', choices=[f.name for f in dataclasses.fields(Info)])
     group.add_argument('--name-only', action='store_true')
     args = parser.parse_args()
     single_output = 'name' if args.name_only else 'path'  # used if --output isn't specified
@@ -204,9 +202,7 @@ def _changed_only(root: pathlib.Path, dirs: list[pathlib.Path], ref: str) -> lis
     return [p for p in dirs if p in changes]
 
 
-def _get_changed_versions_only(
-    root: pathlib.Path, dirs: list[pathlib.Path], ref: str
-) -> list[pathlib.Path]:
+def _get_changed_versions_only(root: pathlib.Path, dirs: list[pathlib.Path], ref: str) -> list[pathlib.Path]:
     """Returns only those packages that have had a version change between `ref` and current state.
 
     Takes a snapshot of the repo at `ref` for comparison.

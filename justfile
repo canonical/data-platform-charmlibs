@@ -5,6 +5,8 @@ python := '3.10'
 # for integration tests, e.g. `just tag=24.04 pack-k8s` `just tag=foo integration-machine`
 tag := env('CHARMLIBS_TAG', '')
 
+file := env('CHARMLIBS_FILE', 'tests/integration/')
+
 _uv_run_with_test_requirements := 'uv run --with-requirements ' + quote(join(justfile_dir(), 'test-requirements.txt')) + ' --python ' + python
 
 # this is the first recipe in the file, so it will run if just is called without a recipe
@@ -96,11 +98,15 @@ pack-k8s package *args: (_pack package 'k8s' args)
 [doc("Execute pack script to pack machine charm(s) for Juju integration tests.")]
 pack-machine package *args: (_pack package 'machine' args)
 
+[doc("Pack a specific charm for Juju integration tests.")]
+pack package charm *args: (_pack package charm args)
+
 [doc("Execute the pack script for the given package, setting CHARMLIBS_SUBSTRATE and CHARMLIBS_TAG.")]
 _pack package substrate *args:
     #!/usr/bin/env -S bash -xueo pipefail
     cd '{{package}}/tests/integration'
     CHARMLIBS_SUBSTRATE='{{substrate}}' CHARMLIBS_TAG='{{tag}}' ./pack.sh {{args}}
+
 
 [doc("Run juju integration tests for packed k8s charm(s), setting CHARMLIBS_SUBSTRATE and CHARMLIBS_TAG, and selecting 'not machine_only'.")]
 integration-k8s package +flags='-rA': (_integration package 'k8s' 'not machine_only' flags)
@@ -109,12 +115,12 @@ integration-k8s package +flags='-rA': (_integration package 'k8s' 'not machine_o
 integration-machine package +flags='-rA': (_integration package 'machine' 'not k8s_only' flags)
 
 [doc("Run juju integration tests. Requires `juju`.")]
-_integration package substrate label +flags:
+_integration package substrate label +flags='':
     #!/usr/bin/env -S bash -xueo pipefail
     cd '{{package}}'
     if [ -f uv.lock ]; then LOCKED='--locked'; else LOCKED=''; fi
     CHARMLIBS_SUBSTRATE={{substrate}} CHARMLIBS_TAG='{{tag}}' {{_uv_run_with_test_requirements}} $LOCKED --group integration \
-        pytest --tb=native -vv -m '{{label}}' tests/integration  {{flags}}
+        pytest --tb=native -vv -m '{{label}}' {{file}}  {{flags}}
 
 [doc('Run package specific static analysis only, e.g. `just python=3.10 static interfaces`.')]
 [positional-arguments]  # pass recipe args to recipe script positionally (so we can get correct quoting)
@@ -127,3 +133,9 @@ static package *args:
         --group lint --group unit --group integration \
         --with pytest-interface-tester \
         pyright --pythonversion='{{python}}' "${@}"
+
+[doc('Create the files for a new charmlibs package interactively.')]
+init *args:
+    @echo '✨{{BOLD}}IMPORTANT{{NORMAL}}✨ The project name should be the import package name, without the {{CYAN}}dpcharmlibs.{{NORMAL}} namespace.'
+    @echo 'You can press enter to accept the default, shown in brackets.'
+    @env CHARMLIBS_TEMPLATE=$(realpath .template) uvx cookiecutter .template {{args}}

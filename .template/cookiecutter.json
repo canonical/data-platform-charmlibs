@@ -1,0 +1,16 @@
+{
+    "project_slug": "example",
+    "min_python_version": "3.10",
+    "author": "The Data Platform team at Canonical Ltd.",
+    "_interface": false,
+    "__path_prefix": "",
+    "__ns": "dpcharmlibs",
+    "__pkg": "{{ cookiecutter.project_slug.replace('-', '_') }}",
+    "__import_pkg": "{{ cookiecutter.__ns }}.{{ cookiecutter.__pkg }}",
+    "__dist_pkg": "{{ cookiecutter.__import_pkg.replace('.', '-').replace('_', '-') }}",
+    "__prompts__": {
+        "project_slug": "🌈 The project name",
+        "min_python_version": "🐍 The minimum Python version supported by the package",
+        "author": "📝 The author field for PyPI"
+    }
+}
