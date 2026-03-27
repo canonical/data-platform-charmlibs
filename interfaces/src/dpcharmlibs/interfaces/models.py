@@ -495,6 +495,13 @@ class KafkaResponseModel(ResourceProviderModel):
     zookeeper_uris: ExtraSecretStr = Field(default=None)
 
 
+class ValkeyResponseModel(ResourceProviderModel):
+    """Valkey response model."""
+
+    sentinel_endpoints: str | None = Field(default=None)
+    mode: str | None = Field(default=None)
+
+
 class RelationStatus(BaseModel):
     """Base model for status propagation on charm relations."""
 
