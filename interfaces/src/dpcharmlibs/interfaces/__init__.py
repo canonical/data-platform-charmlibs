@@ -305,6 +305,7 @@ from .models import (
     RequirerDataContractV0,
     RequirerDataContractV1,
     ResourceProviderModel,
+    ValkeyResponseModel,
 )
 from .repository import (
     AbstractRepository,
@@ -422,6 +423,7 @@ __all__ = [
     'TlsSecretBool',
     'TlsSecretStr',
     'UserSecretStr',
+    'ValkeyResponseModel',
     'build_model',
     'diff',
     'ensure_leader_for_app',

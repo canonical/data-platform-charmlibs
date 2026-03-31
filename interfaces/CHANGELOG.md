@@ -1,3 +1,7 @@
+# 1.0.2 - 31 March 2026
+
+* Fix import for `ValkeyResponseModel`
+
 # 1.0.1 - 27 March 2026
 
 * Add support for `valkey_client` interface
