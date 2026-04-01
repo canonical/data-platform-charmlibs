@@ -203,7 +203,7 @@ jobs:
           CHARM: ${{ matrix.charm }}
       - run: touch .empty
       - name: Upload charm
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: packed-charm-${{ inputs.package }}-${{ matrix.charm }}
           path: |
@@ -278,7 +278,7 @@ jobs:
       - name: Upload logs
         timeout-minutes: 5
         if: ${{ success() || (failure() && steps.integ_test.outcome == 'failure') }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: logs-integration-test-${{ matrix.tests.substrate }}-${{ matrix.tests.log }}
           path: ~/logs/
