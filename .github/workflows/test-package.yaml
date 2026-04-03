@@ -241,7 +241,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Download charms
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         timeout-minutes: 5
         with:
           pattern: packed-charm-*
