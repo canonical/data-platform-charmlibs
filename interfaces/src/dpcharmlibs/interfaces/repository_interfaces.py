@@ -249,7 +249,7 @@ def write_model(repository: AbstractRepository, model: BaseModel, context: dict[
 
     # iterate over all requests and keys to ensure no sensitive data is exposed
     for field, value in dumped.items():
-        if value is None:
+        if value is None and field not in CROSS_MODEL_RELATION_CONSUMER_SECRETS:
             repository.delete_field(field)
             continue
 
