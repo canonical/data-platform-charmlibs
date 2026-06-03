@@ -365,9 +365,6 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             )
             return
 
-        if not self.charm.unit.is_leader():
-            return
-
         # Emit a resource requested event if the setup key (resource name)
         # was added to the relation databag, but the entity-type key was not.
         if resource_added(_diff, self._extra_aliases) and 'entity-type' not in _diff.added:
@@ -412,12 +409,7 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
         repository: AbstractRepository,
         request: RequirerCommonModel,
     ):
-        _diff = self.compute_diff(
-            event.relation,
-            request,
-            repository,
-            store=bool(self.charm.unit.is_leader()),
-        )
+        _diff = self.compute_diff(event.relation, request, repository)
 
         self._validate_diff(event, _diff)
         self._dispatch_events(event, _diff, request)
@@ -447,12 +439,10 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
                     old_mtls_cert=old_data.get('mtls-cert', None),
                 )
 
-        if not self.charm.unit.is_leader():
-            return
-
-        self.on.bulk_resources_requested.emit(
-            event.relation, app=event.app, unit=event.unit, requests=request_model.requests
-        )
+        if not self.mtls_enabled:
+            self.on.bulk_resources_requested.emit(
+                event.relation, app=event.app, unit=event.unit, requests=request_model.requests
+            )
 
         # get encryption key to safely store data
         repository_data = repository.get_data() or {}
@@ -570,6 +560,9 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
 
     @override
     def _on_relation_changed_event(self, event: RelationChangedEvent):
+        if not self.charm.unit.is_leader():
+            return
+
         repository = OpsRelationRepository(self.model, event.relation, component=event.relation.app)
 
         # Don't do anything until we get some data
@@ -583,10 +576,9 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             request_model.request_id = None  # For safety, let's ensure that we don't have a model.
             self._handle_event(event, repository, request_model)
             logger.info(f"Patching databag for v0 compatibility: replacing 'resource' by '{old_name}'")
-            if self.charm.unit.is_leader():
-                self.interface.repository(
-                    event.relation.id,
-                ).write_field(old_name, request_model.resource)
+            self.interface.repository(
+                event.relation.id,
+            ).write_field(old_name, request_model.resource)
         else:
             request_model = build_model(repository, RequirerDataContractV1[self.request_model])
             if self.bulk_event:
