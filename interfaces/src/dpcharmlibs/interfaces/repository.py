@@ -427,7 +427,7 @@ class OpsRepository(AbstractRepository):
 
     @property
     def is_cross_model_relation(self) -> bool:
-        """Determines whether the relation is a cross-model relation based on model uuid."""
+        """Determines whether the relation is a cross-model relation or not."""
         if not self.relation:
             return False
 
