@@ -1081,6 +1081,10 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
 
         if not response_model.requests:
             logger.info('Still waiting for data.')
+
+            if not self.charm.unit.is_leader():
+                return
+
             local_repository = OpsRelationRepository(self.model, event.relation, self.charm.app)
             if (
                 encryption_secret := repository.get_field('encryption-secret')
