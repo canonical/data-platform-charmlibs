@@ -425,7 +425,6 @@ class OpsRepository(AbstractRepository):
     def delete_secret(self, label: str) -> None:
         self.secrets.remove(label)
 
-    @override
     @property
     def is_cross_model_relation(self) -> bool:
         if not self.relation:
