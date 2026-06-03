@@ -429,20 +429,9 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             _diff = self.compute_diff(event.relation, request, repository, store=False)
             self._validate_diff(event, _diff)
 
-            if self.mtls_enabled and 'mtls-cert' in _diff.changed:
-                old_data = get_encoded_dict(event.relation, self.component, 'data') or {}
-                self.on.mtls_cert_updated.emit(
-                    event.relation,
-                    app=event.app,
-                    unit=event.unit,
-                    request=request,
-                    old_mtls_cert=old_data.get('mtls-cert', None),
-                )
-
-        if not self.mtls_enabled:
-            self.on.bulk_resources_requested.emit(
-                event.relation, app=event.app, unit=event.unit, requests=request_model.requests
-            )
+        self.on.bulk_resources_requested.emit(
+            event.relation, app=event.app, unit=event.unit, requests=request_model.requests
+        )
 
         # get encryption key to safely store data
         repository_data = repository.get_data() or {}

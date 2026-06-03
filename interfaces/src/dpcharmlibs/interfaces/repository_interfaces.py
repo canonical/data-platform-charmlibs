@@ -250,8 +250,6 @@ def write_model(repository: AbstractRepository, model: BaseModel, context: dict[
     # iterate over all requests and keys to ensure no sensitive data is exposed
     for field, value in dumped.items():
         if value is None:
-            # todo: remove logger
-            logger.info(f'deleting field {field}')
             repository.delete_field(field)
             continue
 
@@ -275,6 +273,4 @@ def write_model(repository: AbstractRepository, model: BaseModel, context: dict[
                         request[key] = None
 
         dumped_value = value if isinstance(value, str) else json.dumps(value)
-        # todo: remove logger
-        logger.info(f'writing field {field}')
         repository.write_field(field, dumped_value)
