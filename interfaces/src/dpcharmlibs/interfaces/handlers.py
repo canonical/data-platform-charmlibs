@@ -21,6 +21,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Generic, TypeVar, overload
 
+from cryptography.fernet import Fernet
 from ops import Application, Object, Relation, RelationCreatedEvent, RelationEvent, Unit
 from ops.charm import CharmBase, RelationChangedEvent, SecretChangedEvent, SecretRemoveEvent
 from ops.model import ModelError, SecretNotFoundError
@@ -45,6 +46,7 @@ from dpcharmlibs.interfaces.models import (
     RequirerDataContractV0,
     RequirerDataContractV1,
     ResourceProviderModel,
+    SecretGroup,
 )
 from dpcharmlibs.interfaces.repository import AbstractRepository, OpsRelationRepository
 from dpcharmlibs.interfaces.repository_interfaces import (
@@ -211,6 +213,14 @@ class EventHandlers(Object):
         _diff = diff(old_data, new_data)
 
         if store:
+            # get encryption key to safely store data
+            encryption_key = None
+            if encryption_secret := repository.get_data().get('encryption-secret'):
+                secret = repository.get_secret(
+                    secret_group=SecretGroup('encryption'), secret_uri=encryption_secret
+                )
+                encryption_key = secret.get_content().get('encryption-key')
+
             # Update the databag with the new data for later diff computations
             store_new_data(
                 relation,
@@ -222,6 +232,7 @@ class EventHandlers(Object):
                         code: status.model_dump() for code, status in self.get_statuses(relation.id).items()
                     }
                 },
+                encryption_key=encryption_key,
             )
 
         return _diff
@@ -335,11 +346,23 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
                 raise ValueError(f'Cannot change {key} after relation has already been created')
 
     def _dispatch_events(self, event: RelationEvent, _diff: Diff, request: RequirerCommonModel):
-        if self.mtls_enabled and 'secret-mtls' in _diff.added:
+        if self.mtls_enabled and ('secret-mtls' in _diff.added or 'mtls-cert' in _diff.added):
             self.on.mtls_cert_updated.emit(
                 event.relation, app=event.app, unit=event.unit, request=request, old_mtls_cert=None
             )
             return
+
+        if self.mtls_enabled and 'mtls-cert' in _diff.changed:
+            old_data = get_encoded_dict(event.relation, self.component, 'data')
+            self.on.mtls_cert_updated.emit(
+                event.relation,
+                app=event.app,
+                unit=event.unit,
+                request=request,
+                old_mtls_cert=old_data.get('mtls-cert', None),
+            )
+            return
+
         # Emit a resource requested event if the setup key (resource name)
         # was added to the relation databag, but the entity-type key was not.
         if resource_added(_diff, self._extra_aliases) and 'entity-type' not in _diff.added:
@@ -408,6 +431,14 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             event.relation, app=event.app, unit=event.unit, requests=request_model.requests
         )
 
+        # get encryption key to safely store data
+        encryption_key = None
+        if encryption_secret := repository.get_data().get('encryption-secret'):
+            secret = repository.get_secret(
+                secret_group=SecretGroup('encryption'), secret_uri=encryption_secret
+            )
+            encryption_key = secret.get_content().get('encryption-key')
+
         # Store all the diffs if they were not already stored.
         for request in request_model.requests:
             new_data = request.model_dump(
@@ -417,7 +448,40 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
                 exclude_none=True,
                 exclude_defaults=True,
             )
-            store_new_data(event.relation, self.component, new_data, request.request_id)
+            store_new_data(
+                relation=event.relation,
+                component=self.component,
+                new_data=new_data,
+                short_uuid=request.request_id,
+                encryption_key=encryption_key,
+            )
+
+    def _on_relation_created_event(self, event: RelationCreatedEvent) -> None:
+        """Event emitted when the database relation is created."""
+        super()._on_relation_created_event(event)
+
+        repository = OpsRelationRepository(self.model, event.relation, self.charm.app)
+
+        if not self.charm.unit.is_leader():
+            return
+
+        if not repository.is_cross_model_relation:
+            return
+
+        if repository.get_field('encryption-secret'):
+            return
+
+        # generate relation-specific encryption key
+        # this key will be used to safely store sensitive information from consumer side in relation data
+        # in cross-model relations, this is required because consumer-side secrets are not supported
+        encryption_key = Fernet.generate_key()
+        encryption_secret = repository.add_secret(
+            field='encryption-key',
+            value=encryption_key.decode(),
+            secret_group=SecretGroup('encryption'),
+        )
+
+        repository.write_field('encryption-secret', encryption_secret.meta.id)
 
     @override
     def _on_secret_changed_event(self, event: SecretChangedEvent) -> None:
@@ -1011,6 +1075,18 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
 
         if not response_model.requests:
             logger.info('Still waiting for data.')
+            local_repository = OpsRelationRepository(self.model, event.relation, self.charm.app)
+            if (
+                encryption_secret := repository.get_field('encryption-secret')
+            ) and not local_repository.get_field('encryption-secret'):
+                for request in self._requests:
+                    request.request_id = gen_hash(request.resource, request.salt)
+                # update relation data with encryption secret
+                local_repository.write_field('encryption-secret', encryption_secret)
+                full_request = RequirerDataContractV1[self._request_model](
+                    version='v1', requests=self._requests
+                )
+                write_model(local_repository, full_request)
             return
 
         data = repository.get_field('data')

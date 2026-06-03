@@ -124,6 +124,12 @@ class AbstractRepository(ABC):
     @abstractmethod
     def secret_field(self, secret_group: SecretGroup, field: str | None = None) -> str:
         """Builds a secret field."""
+        ...
+
+    @abstractmethod
+    def is_cross_model_relation(self) -> bool:
+        """Determines whether the relation is a cross-model relation or not."""
+        ...
 
 
 class OpsRepository(AbstractRepository):
@@ -417,6 +423,17 @@ class OpsRepository(AbstractRepository):
     @ensure_leader_for_app
     def delete_secret(self, label: str) -> None:
         self.secrets.remove(label)
+
+    @override
+    @property
+    def is_cross_model_relation(self) -> bool:
+        if not self.relation:
+            return False
+
+        if self.model.uuid != self.relation.remote_model.uuid:
+            return True
+
+        return False
 
 
 class OpsRelationRepository(OpsRepository):
