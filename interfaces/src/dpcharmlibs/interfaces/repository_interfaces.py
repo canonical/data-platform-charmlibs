@@ -241,8 +241,9 @@ def write_model(repository: AbstractRepository, model: BaseModel, context: dict[
     dumped = model.model_dump(mode='json', context={'repository': repository} | context, exclude_none=False)
 
     # get encryption key from secret
+    repository_data = repository.get_data() or {}
     encryption_key = None
-    if encryption_secret := repository.get_data().get('encryption-secret'):
+    if encryption_secret := repository_data.get('encryption-secret'):
         secret = repository.get_secret(secret_group=SecretGroup('encryption'), secret_uri=encryption_secret)
         encryption_key = secret.get_content().get('encryption-key') if secret else ''
 
