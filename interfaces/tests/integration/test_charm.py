@@ -1121,6 +1121,7 @@ async def test_requires_get_set_delete_fields(ops_test: OpsTest):
 
 @pytest.mark.log_errors_allowed('This operation (get_data) can only be performed by the leader unit')
 @pytest.mark.log_errors_allowed('This operation (write_field) can only be performed by the leader unit')
+@pytest.mark.log_errors_allowed('This operation (delete_field) can only be performed by the leader unit')
 async def test_provider_set_delete_fields_leader_only(ops_test: OpsTest):
     leader_id = await get_leader_id(ops_test, DATABASE_APP_NAME)
     leader_name = f'{DATABASE_APP_NAME}/{leader_id}'
