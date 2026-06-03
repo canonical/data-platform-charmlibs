@@ -203,7 +203,7 @@ def build_model(
         secret = repository.get_secret(
             secret_group=SecretGroup('encryption'), secret_uri=data['encryption-secret']
         )
-        encryption_key = secret.get_content().get('encryption-key', '')
+        encryption_key = secret.get_content().get('encryption-key', '') if secret else ''
 
         # decrypt encrypted sensitive information
         if data.get('requests'):
@@ -244,7 +244,7 @@ def write_model(repository: AbstractRepository, model: BaseModel, context: dict[
     encryption_key = None
     if encryption_secret := repository.get_data().get('encryption-secret'):
         secret = repository.get_secret(secret_group=SecretGroup('encryption'), secret_uri=encryption_secret)
-        encryption_key = secret.get_content().get('encryption-key')
+        encryption_key = secret.get_content().get('encryption-key') if secret else ''
 
     # iterate over all requests and keys to ensure no sensitive data is exposed
     for field, value in dumped.items():

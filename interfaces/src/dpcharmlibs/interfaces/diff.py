@@ -97,10 +97,10 @@ def store_new_data(
                     new_data[key] = encrypted_value
                 except (AttributeError, InvalidToken, TypeError, ValueError):
                     logger.warning('Could not encrypt sensitive field in cross-model relation')
-                    new_data[key] = None
+                    new_data[key] = ''
             else:
                 # ensure sensitive information is not leaked unencrypted in relation data
-                new_data[key] = None
+                new_data[key] = ''
 
     global_data = global_data or {}
     global_data = {k: v for k, v in global_data.items() if v}

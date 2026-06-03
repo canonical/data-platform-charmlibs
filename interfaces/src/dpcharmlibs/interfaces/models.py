@@ -192,6 +192,7 @@ class BaseCommonModel(BaseModel):
         repository: AbstractRepository = info.context.get('repository')
         short_uuid = self.short_uuid
         hybrid_fields = [s.replace('-', '_') for s in CROSS_MODEL_RELATION_CONSUMER_SECRETS]
+
         for field, field_info in self.__pydantic_fields__.items():
             if (
                 field_info.annotation in OptionalSecrets and len(field_info.metadata) == 1
@@ -201,7 +202,7 @@ class BaseCommonModel(BaseModel):
                         # secrets cannot be shared from requirer side in cross-model-relations
                         # therefore ignore this field as it is stored in relation data
                         continue
-                    secret_group = field.split('_')[0]
+                    secret_group = SecretGroup(field.split('_')[0])
                 else:
                     secret_group = field_info.metadata[0]
 
@@ -254,7 +255,7 @@ class BaseCommonModel(BaseModel):
                         # secrets cannot be shared from requirer side in cross-model-relations
                         # therefore ignore this field as it is stored in relation data
                         continue
-                    secret_group = field.split('_')[0]
+                    secret_group = SecretGroup(field.split('_')[0])
                 else:
                     secret_group = field_info.metadata[0]
 

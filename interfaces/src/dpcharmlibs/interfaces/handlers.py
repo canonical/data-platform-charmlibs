@@ -29,6 +29,7 @@ from pydantic import TypeAdapter
 from typing_extensions import override
 
 from dpcharmlibs.interfaces.diff import Diff, diff, resource_added, store_new_data
+from dpcharmlibs.interfaces.errors import SecretError
 from dpcharmlibs.interfaces.events import (
     STATUS_FIELD,
     ResourceCreatedEvent,
@@ -214,12 +215,13 @@ class EventHandlers(Object):
 
         if store:
             # get encryption key to safely store data
+            repository_data = repository.get_data() or {}
             encryption_key = None
-            if encryption_secret := repository.get_data().get('encryption-secret'):
+            if encryption_secret := repository_data.get('encryption-secret'):
                 secret = repository.get_secret(
                     secret_group=SecretGroup('encryption'), secret_uri=encryption_secret
                 )
-                encryption_key = secret.get_content().get('encryption-key')
+                encryption_key = secret.get_content().get('encryption-key') if secret else ''
 
             # Update the databag with the new data for later diff computations
             store_new_data(
@@ -353,7 +355,7 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             return
 
         if self.mtls_enabled and 'mtls-cert' in _diff.changed:
-            old_data = get_encoded_dict(event.relation, self.component, 'data')
+            old_data = get_encoded_dict(event.relation, self.component, 'data') or {}
             self.on.mtls_cert_updated.emit(
                 event.relation,
                 app=event.app,
@@ -432,12 +434,13 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
         )
 
         # get encryption key to safely store data
+        repository_data = repository.get_data() or {}
         encryption_key = None
-        if encryption_secret := repository.get_data().get('encryption-secret'):
+        if encryption_secret := repository_data.get('encryption-secret'):
             secret = repository.get_secret(
                 secret_group=SecretGroup('encryption'), secret_uri=encryption_secret
             )
-            encryption_key = secret.get_content().get('encryption-key')
+            encryption_key = secret.get_content().get('encryption-key') if secret else ''
 
         # Store all the diffs if they were not already stored.
         for request in request_model.requests:
@@ -480,6 +483,9 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             value=encryption_key.decode(),
             secret_group=SecretGroup('encryption'),
         )
+
+        if not encryption_secret or not encryption_secret.meta:
+            raise SecretError('No secret to send back')
 
         repository.write_field('encryption-secret', encryption_secret.meta.id)
 

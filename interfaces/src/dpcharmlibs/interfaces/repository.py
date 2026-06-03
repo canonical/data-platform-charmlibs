@@ -126,11 +126,6 @@ class AbstractRepository(ABC):
         """Builds a secret field."""
         ...
 
-    @abstractmethod
-    def is_cross_model_relation(self) -> bool:
-        """Determines whether the relation is a cross-model relation or not."""
-        ...
-
 
 class OpsRepository(AbstractRepository):
     """Implementation for ops repositories, with some methods left out."""
@@ -424,9 +419,9 @@ class OpsRepository(AbstractRepository):
     def delete_secret(self, label: str) -> None:
         self.secrets.remove(label)
 
-    @override
     @property
     def is_cross_model_relation(self) -> bool:
+        """Determines whether the relation is a cross-model relation or not."""
         if not self.relation:
             return False
 
