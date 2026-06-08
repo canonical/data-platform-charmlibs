@@ -21,7 +21,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Generic, TypeVar, overload
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from ops import Application, Object, Relation, RelationCreatedEvent, RelationEvent, Unit
 from ops.charm import CharmBase, RelationChangedEvent, SecretChangedEvent, SecretRemoveEvent
 from ops.model import ModelError, SecretNotFoundError
@@ -356,12 +356,28 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
 
         if self.mtls_enabled and 'mtls-cert' in _diff.changed:
             old_data = get_encoded_dict(event.relation, self.component, 'data') or {}
+            old_mtls_cert = old_data.get('mtls-cert', None)
+
+            # in case of cross-model relations, the `mtls-cert` is encrypted
+            # get the encryption key to decrypt it before sending it as event data
+            encryption_key = None
+            if encryption_secret := old_data.get('encryption-secret'):
+                secret = self.model.get_secret(id=encryption_secret)
+                encryption_key = secret.get_content().get('encryption-key') if secret else None
+
+            if encryption_key and old_mtls_cert:
+                try:
+                    f = Fernet(encryption_key)
+                    old_mtls_cert = f.decrypt(old_mtls_cert.encode()).decode()
+                except (AttributeError, InvalidToken, TypeError, ValueError):
+                    logger.warning('Could not decrypt sensitive field in cross-model relation')
+
             self.on.mtls_cert_updated.emit(
                 event.relation,
                 app=event.app,
                 unit=event.unit,
                 request=request,
-                old_mtls_cert=old_data.get('mtls-cert', None),
+                old_mtls_cert=old_mtls_cert,
             )
             return
 
