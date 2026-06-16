@@ -55,6 +55,10 @@ logger = getLogger(__name__)
 
 SECRET_PREFIX = 'secret-'  # noqa: S105
 
+CROSS_MODEL_RELATION_CONSUMER_SECRETS = [
+    'mtls-cert',
+]
+
 
 class PeerModel(BaseModel):
     """Common Model for all peer relations."""
@@ -187,9 +191,21 @@ class BaseCommonModel(BaseModel):
             return self
         repository: AbstractRepository = info.context.get('repository')
         short_uuid = self.short_uuid
+        hybrid_fields = [s.replace('-', '_') for s in CROSS_MODEL_RELATION_CONSUMER_SECRETS]
+
         for field, field_info in self.__pydantic_fields__.items():
-            if field_info.annotation in OptionalSecrets and len(field_info.metadata) == 1:
-                secret_group = field_info.metadata[0]
+            if (
+                field_info.annotation in OptionalSecrets and len(field_info.metadata) == 1
+            ) or field in hybrid_fields:
+                if field in hybrid_fields:
+                    if repository.is_cross_model_relation:
+                        # secrets cannot be shared from requirer side in cross-model-relations
+                        # therefore ignore this field as it is stored in relation data
+                        continue
+                    secret_group = SecretGroup(field.split('_')[0])
+                else:
+                    secret_group = field_info.metadata[0]
+
                 if not secret_group:
                     raise SecretsUnavailableError(field)
 
@@ -228,9 +244,21 @@ class BaseCommonModel(BaseModel):
         if info.context.get('version') == 'v0':
             short_uuid = None
 
+        hybrid_fields = [s.replace('-', '_') for s in CROSS_MODEL_RELATION_CONSUMER_SECRETS]
+
         for field, field_info in self.__pydantic_fields__.items():
-            if field_info.annotation in OptionalSecrets and len(field_info.metadata) == 1:
-                secret_group = field_info.metadata[0]
+            if (
+                field_info.annotation in OptionalSecrets and len(field_info.metadata) == 1
+            ) or field in hybrid_fields:
+                if field in hybrid_fields:
+                    if repository.is_cross_model_relation:
+                        # secrets cannot be shared from requirer side in cross-model-relations
+                        # therefore ignore this field as it is stored in relation data
+                        continue
+                    secret_group = SecretGroup(field.split('_')[0])
+                else:
+                    secret_group = field_info.metadata[0]
+
                 if not secret_group:
                     raise SecretsUnavailableError(field)
                 aliased_field = field_info.serialization_alias or field
@@ -358,7 +386,7 @@ class RequirerCommonModel(CommonModel):
     entity_type: Literal['USER', 'GROUP'] | None = Field(default=None)
     entity_permissions: list[EntityPermissionModel] | None = Field(default=None)
     secret_mtls: SecretString | None = Field(default=None)
-    mtls_cert: MtlsSecretStr = Field(default=None)
+    mtls_cert: MtlsSecretStr | str = Field(default=None)
 
     @model_validator(mode='after')
     def validate_fields(self):
@@ -410,6 +438,7 @@ class RequirerDataContractV0(RequirerCommonModel):
     """Backward compatibility."""
 
     version: Literal['v0'] = Field(default='v0')
+    encryption_secret: str | None = Field(default=None)
 
     original_field: str = Field(exclude=True, default='')
 
@@ -438,6 +467,7 @@ class RequirerDataContractV1(BaseModel, Generic[TRequirerCommonModel]):
 
     version: Literal['v1'] = Field(default='v1')
     requests: list[TRequirerCommonModel] = Field(default_factory=list)
+    encryption_secret: str | None = Field(default=None)
 
 
 def discriminate_on_version(payload: Any) -> str:
@@ -465,6 +495,7 @@ class DataContractV1(BaseModel, Generic[TResourceProviderModel]):
 
     version: Literal['v1'] = Field(default='v1')
     requests: list[TResourceProviderModel] = Field(default_factory=list)
+    encryption_secret: str | None = Field(default=None)
 
 
 DataContract = TypeAdapter(DataContractV1[ResourceProviderModel])

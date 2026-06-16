@@ -20,11 +20,17 @@ It helps bring a more object oriented interface that is used by event handlers (
 from __future__ import annotations
 
 import json
+from logging import getLogger
 from typing import TYPE_CHECKING, Generic, TypeVar, overload
 
+from cryptography.fernet import Fernet, InvalidToken
 from pydantic import BaseModel, TypeAdapter
 
-from dpcharmlibs.interfaces.models import PeerModel
+from dpcharmlibs.interfaces.models import (
+    CROSS_MODEL_RELATION_CONSUMER_SECRETS,
+    PeerModel,
+    SecretGroup,
+)
 from dpcharmlibs.interfaces.repository import (
     AbstractRepository,
     OpsOtherPeerUnitRepository,
@@ -33,6 +39,8 @@ from dpcharmlibs.interfaces.repository import (
     OpsRelationRepository,
     OpsRepository,
 )
+
+logger = getLogger(__name__)
 
 if TYPE_CHECKING:
     from ops import Application, Model, Relation, Unit
@@ -191,6 +199,35 @@ def build_model(
 
     data.pop('data', None)
 
+    if repository.is_cross_model_relation and data.get('encryption-secret'):
+        secret = repository.get_secret(
+            secret_group=SecretGroup('encryption'), secret_uri=data['encryption-secret']
+        )
+        encryption_key = secret.get_content().get('encryption-key', '') if secret else ''
+
+        # decrypt encrypted sensitive information
+        if data.get('requests'):
+            # v1
+            try:
+                f = Fernet(encryption_key)
+                for request in data['requests']:
+                    for field in CROSS_MODEL_RELATION_CONSUMER_SECRETS:
+                        if encrypted_value := request.get(field):
+                            decrypted_value = f.decrypt(encrypted_value.encode()).decode()
+                            request[field] = decrypted_value
+            except (AttributeError, InvalidToken, TypeError, ValueError):
+                logger.warning('Could not decrypt sensitive field in cross-model relation')
+        else:
+            # v0 backward compatibility
+            try:
+                f = Fernet(encryption_key)
+                for field in CROSS_MODEL_RELATION_CONSUMER_SECRETS:
+                    if encrypted_value := data.get(field):
+                        decrypted_value = f.decrypt(encrypted_value.encode()).decode()
+                        data[field] = decrypted_value
+            except (AttributeError, InvalidToken, TypeError, ValueError):
+                logger.warning('Could not decrypt sensitive field in cross-model relation')
+
     # Beware this means all fields should have a default value here.
     if isinstance(model, TypeAdapter):
         return model.validate_python(data, context={'repository': repository})
@@ -202,9 +239,38 @@ def write_model(repository: AbstractRepository, model: BaseModel, context: dict[
     """Writes the data stored in the model using the repository object."""
     context = context or {}
     dumped = model.model_dump(mode='json', context={'repository': repository} | context, exclude_none=False)
+
+    # get encryption key from secret
+    repository_data = repository.get_data() or {}
+    encryption_key = None
+    if encryption_secret := repository_data.get('encryption-secret'):
+        secret = repository.get_secret(secret_group=SecretGroup('encryption'), secret_uri=encryption_secret)
+        encryption_key = secret.get_content().get('encryption-key') if secret else ''
+
+    # iterate over all requests and keys to ensure no sensitive data is exposed
     for field, value in dumped.items():
         if value is None:
             repository.delete_field(field)
             continue
+
+        if field == 'requests':
+            for request in value:
+                for key in CROSS_MODEL_RELATION_CONSUMER_SECRETS:
+                    if (
+                        (unencrypted_value := request.get(key))
+                        and repository.is_cross_model_relation
+                        and encryption_key
+                    ):
+                        # encrypt sensitive information in cross-model relations
+                        try:
+                            f = Fernet(encryption_key)
+                            request[key] = f.encrypt(unencrypted_value.encode()).decode()
+                        except (AttributeError, InvalidToken, TypeError, ValueError):
+                            logger.warning('Could not encrypt sensitive field in cross-model relation')
+                            request[key] = None
+                    else:
+                        # ensure sensitive information is not leaked unencrypted in relation data
+                        request[key] = None
+
         dumped_value = value if isinstance(value, str) else json.dumps(value)
         repository.write_field(field, dumped_value)

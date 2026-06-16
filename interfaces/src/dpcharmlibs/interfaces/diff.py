@@ -14,11 +14,16 @@
 """Logic to compute diffs and modelling for diffs."""
 
 import json
+from logging import getLogger
 from typing import Any, NamedTuple
 
+from cryptography.fernet import Fernet, InvalidToken
 from ops.model import Application, Relation, Unit
 
+from dpcharmlibs.interfaces.models import CROSS_MODEL_RELATION_CONSUMER_SECRETS
 from dpcharmlibs.interfaces.utils import RESOURCE_ALIASES
+
+logger = getLogger(__name__)
 
 
 class Diff(NamedTuple):
@@ -70,6 +75,7 @@ def store_new_data(
     new_data: dict[str, str],
     short_uuid: str | None = None,
     global_data: dict[str, Any] | None = None,
+    encryption_key: str | None = None,
 ):
     """Stores the new data in the databag for diff computation.
 
@@ -79,7 +85,23 @@ def store_new_data(
         new_data: a dictionary containing the data to write
         short_uuid: Only present in V1, the request-id of that data to write.
         global_data: request-independent, global state data to be written.
+        encryption_key: Key for encrypting sensitive data before storing
     """
+    for key, value in new_data.items():
+        # ensure all sensitive information is encrypted before storing to relation data
+        if key in CROSS_MODEL_RELATION_CONSUMER_SECRETS:
+            if encryption_key:
+                try:
+                    f = Fernet(encryption_key)
+                    encrypted_value = f.encrypt(value.encode()).decode()
+                    new_data[key] = encrypted_value
+                except (AttributeError, InvalidToken, TypeError, ValueError):
+                    logger.warning('Could not encrypt sensitive field in cross-model relation')
+                    new_data[key] = ''
+            else:
+                # ensure sensitive information is not leaked unencrypted in relation data
+                new_data[key] = ''
+
     global_data = global_data or {}
     global_data = {k: v for k, v in global_data.items() if v}
     # First, the case for V0
