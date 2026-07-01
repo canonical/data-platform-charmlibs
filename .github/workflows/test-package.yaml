@@ -35,7 +35,7 @@ jobs:
       integration-substrates: ${{ steps.integration-substrates.outputs.substrates }}
       integration-tags: ${{ steps.integration-tags.outputs.tags }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -115,7 +115,7 @@ jobs:
       matrix:
         python: ${{ fromJson(needs.init.outputs.python) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -134,7 +134,7 @@ jobs:
       matrix:
         python: ${{ fromJson(needs.init.outputs.python) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -151,7 +151,7 @@ jobs:
     outputs:
       charms: ${{ steps.collect.outputs.charms }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Collect charms
@@ -178,7 +178,7 @@ jobs:
       matrix:
         charm: ${{ fromJson(needs.collect-charms.outputs.charms) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Install uv
@@ -222,7 +222,7 @@ jobs:
         tag: ${{ fromJson(needs.init.outputs.integration-tags) }}
         tests: ${{ fromJson(needs.init.outputs.integration-substrates) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
