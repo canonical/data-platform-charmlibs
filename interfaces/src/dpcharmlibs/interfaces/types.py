@@ -44,6 +44,7 @@ TlsSecretBool = Annotated[OptionalSecretBool, Field(exclude=True, default=None),
 MtlsSecretStr = Annotated[OptionalSecretStr, Field(exclude=True, default=None), 'mtls']
 ExtraSecretStr = Annotated[OptionalSecretStr, Field(exclude=True, default=None), 'extra']
 EntitySecretStr = Annotated[OptionalSecretStr, Field(exclude=True, default=None), 'entity']
+RequestedEntitySecretStr = Annotated[OptionalSecretStr, Field(exclude=True, default=None), 'requested-entity']
 
 
 class Scope(Enum):

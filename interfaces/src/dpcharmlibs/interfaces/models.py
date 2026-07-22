@@ -18,6 +18,7 @@ import json
 from logging import getLogger
 from typing import Annotated, Any, Generic, Literal, TypeVar
 
+from ops.model import SecretNotFoundError
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -43,6 +44,7 @@ from dpcharmlibs.interfaces.types import (
     MtlsSecretStr,
     OptionalSecretBool,
     OptionalSecrets,
+    RequestedEntitySecretStr,
     SecretGroup,
     SecretString,
     TlsSecretBool,
@@ -216,7 +218,14 @@ class BaseCommonModel(BaseModel):
                 if not secret_uri:
                     continue
 
-                secret = repository.get_secret(secret_group, secret_uri=secret_uri, short_uuid=short_uuid)
+                try:
+                    secret = repository.get_secret(secret_group, secret_uri=secret_uri, short_uuid=short_uuid)
+                except SecretNotFoundError:
+                    # v0 deletes the requested entity secret
+                    if secret_group == 'requested-entity':  # noqa: S105
+                        logger.debug('Missing requested entity secret')
+                        continue
+                    raise
 
                 if not secret:
                     logger.info(f'No secret for group {secret_group} and short uuid {short_uuid}')
@@ -387,6 +396,13 @@ class RequirerCommonModel(CommonModel):
     entity_permissions: list[EntityPermissionModel] | None = Field(default=None)
     secret_mtls: SecretString | None = Field(default=None)
     mtls_cert: MtlsSecretStr | str = Field(default=None)
+    secret_requested_entity: SecretString | None = Field(
+        default=None,
+        validation_alias=AliasChoices('requested-entity-secret', 'secret-requested-entity'),
+    )
+    entity_name: RequestedEntitySecretStr = Field(default=None)
+    entity_password: RequestedEntitySecretStr = Field(default=None, serialization_alias='password')
+    prefix_matching: Literal['all', 'only-existing'] | None = Field(default=None)
 
     @model_validator(mode='after')
     def validate_fields(self):
@@ -399,6 +415,9 @@ class RequirerCommonModel(CommonModel):
 
         if self.entity_type == 'GROUP' and self.extra_user_roles:
             raise ValueError('Inconsistent entity information. Use extra_group_roles instead')
+
+        if self.entity_password and not self.entity_name:
+            raise ValueError('Unable to set entity password without an entity name')
 
         return self
 
@@ -432,6 +451,7 @@ class ResourceProviderModel(ProviderCommonModel):
     entity_name: EntitySecretStr = Field(default=None)
     entity_password: EntitySecretStr = Field(default=None)
     version: str | None = Field(default=None)
+    prefix_resources: str | None = Field(default=None)
 
 
 class RequirerDataContractV0(RequirerCommonModel):
