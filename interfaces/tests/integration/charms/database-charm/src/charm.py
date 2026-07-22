@@ -244,6 +244,7 @@ class Charm(common.Charm):
         connection.autocommit = True
         cursor = connection.cursor()
         # Create the database, user and password. Also gives the user access to the database.
+        cursor.execute(f"CREATE USER {username} WITH ENCRYPTED PASSWORD '{password}';")
         for resource in resources:
             cursor.execute(f'CREATE DATABASE {resource};')
             cursor.execute(f'GRANT ALL PRIVILEGES ON DATABASE {resource} TO {username};')
