@@ -731,7 +731,6 @@ async def test_database_roles_relation_with_charm_libraries_secrets(ops_test: Op
 
 
 @pytest.mark.abort_on_fail
-@pytest.mark.usefixtures('only_with_juju_secrets')
 async def test_database_username(ops_test: OpsTest):
     """Test basic functionality of database-roles relation interface."""
     # Relate the charms and wait for them exchanging some connection data.
