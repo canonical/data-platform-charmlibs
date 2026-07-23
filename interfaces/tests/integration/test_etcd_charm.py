@@ -43,6 +43,8 @@ TEST_VALUE = '42'
 
 pytestmark = pytest.mark.machine_only
 
+# TEST
+
 
 def get_requirer_common_names(juju: Juju) -> list[str]:
     """Get the common name of the requirer charm."""
