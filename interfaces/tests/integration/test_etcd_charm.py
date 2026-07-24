@@ -187,12 +187,6 @@ def test_write_read_with_requirer(juju_lxd_model: Juju) -> None:
 
 
 @pytest.mark.log_errors_allowed('etcdctl put failed')
-@pytest.mark.log_errors_allowed(
-    'dpcharmlibs.interfaces.utils:This operation (write_field) can only be performed by the leader unit'
-)
-@pytest.mark.log_errors_allowed(
-    'dpcharmlibs.interfaces.utils:This operation (delete_field) can only be performed by the leader unit'
-)
 def test_update_mtls_cert(juju_lxd_model: Juju):
     """Test updating the common name used by the requirer app."""
     old_mtls_certs = get_requirer_mtls_certificates(juju_lxd_model)
