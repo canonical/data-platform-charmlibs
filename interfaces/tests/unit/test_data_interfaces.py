@@ -1165,6 +1165,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             'version': 'v1',
             'requests': [
                 {
+                    'entity-name': None,
+                    'entity-password': None,
                     'entity-permissions': None,
                     'entity-type': None,
                     'external-node-connectivity': False,
@@ -1174,11 +1176,14 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     'request-id': 'c759221a6c14c72a',
                     'resource': 'data_platform',
                     'salt': 'kkkkkkkk',
+                    'password': None,
                     'secret-mtls': None,
                     'mtls-cert': None,
                     'secret-requested-entity': None,
                 },
                 {
+                    'entity-name': None,
+                    'entity-password': None,
                     'entity-permissions': None,
                     'entity-type': 'USER',
                     'external-node-connectivity': False,
@@ -1188,6 +1193,7 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     'request-id': '9ecfabfbb5258f88',
                     'resource': '',
                     'salt': 'xxxxxxxx',
+                    'password': None,
                     'secret-mtls': None,
                     'mtls-cert': None,
                     'secret-requested-entity': None,
@@ -1416,6 +1422,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             'version': 'v1',
             'requests': [
                 {
+                    'entity-name': None,
+                    'entity-password': None,
                     'entity-permissions': None,
                     'entity-type': None,
                     'salt': 'kkkkkkkk',
@@ -1425,11 +1433,14 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     'extra-user-roles': 'CREATEDB,CREATEROLE',
                     'prefix-matching': None,
                     'external-node-connectivity': False,
+                    'password': None,
                     'secret-mtls': None,
                     'mtls-cert': None,
                     'secret-requested-entity': None,
                 },
                 {
+                    'entity-name': None,
+                    'entity-password': None,
                     'entity-permissions': None,
                     'salt': 'xxxxxxxx',
                     'request-id': '9ecfabfbb5258f88',
@@ -1439,6 +1450,7 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     'extra-user-roles': None,
                     'prefix-matching': None,
                     'external-node-connectivity': False,
+                    'password': None,
                     'secret-mtls': None,
                     'mtls-cert': None,
                     'secret-requested-entity': None,

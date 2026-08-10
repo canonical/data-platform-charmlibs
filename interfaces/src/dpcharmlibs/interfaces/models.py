@@ -59,6 +59,8 @@ SECRET_PREFIX = 'secret-'  # noqa: S105
 
 CROSS_MODEL_RELATION_CONSUMER_SECRETS = [
     'mtls-cert',
+    'entity-name',
+    'entity-password',
 ]
 
 
@@ -400,8 +402,8 @@ class RequirerCommonModel(CommonModel):
         default=None,
         validation_alias=AliasChoices('requested-entity-secret', 'secret-requested-entity'),
     )
-    entity_name: RequestedEntitySecretStr = Field(default=None)
-    entity_password: RequestedEntitySecretStr = Field(default=None, serialization_alias='password')
+    entity_name: RequestedEntitySecretStr | str = Field(default=None)
+    entity_password: RequestedEntitySecretStr | str = Field(default=None, serialization_alias='password')
     prefix_matching: Literal['all', 'only-existing'] | None = Field(default=None)
 
     @model_validator(mode='after')
