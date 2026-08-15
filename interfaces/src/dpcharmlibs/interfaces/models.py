@@ -16,7 +16,7 @@
 import copy
 import json
 from logging import getLogger
-from typing import Annotated, Any, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar, get_args
 
 from ops.model import SecretNotFoundError
 from pydantic import (
@@ -206,7 +206,11 @@ class BaseCommonModel(BaseModel):
                         # secrets cannot be shared from requirer side in cross-model-relations
                         # therefore ignore this field as it is stored in relation data
                         continue
-                    secret_group = SecretGroup(field.split('_')[0])
+                    secret_group = (
+                        field_info.metadata[0]
+                        if field_info.metadata
+                        else SecretGroup(get_args(get_args(field_info.annotation)[0])[-1])
+                    )
                 else:
                     secret_group = field_info.metadata[0]
 
@@ -266,7 +270,11 @@ class BaseCommonModel(BaseModel):
                         # secrets cannot be shared from requirer side in cross-model-relations
                         # therefore ignore this field as it is stored in relation data
                         continue
-                    secret_group = SecretGroup(field.split('_')[0])
+                    secret_group = (
+                        field_info.metadata[0]
+                        if field_info.metadata
+                        else SecretGroup(get_args(get_args(field_info.annotation)[0])[-1])
+                    )
                 else:
                     secret_group = field_info.metadata[0]
 
