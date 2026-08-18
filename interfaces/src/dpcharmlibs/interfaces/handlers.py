@@ -485,7 +485,7 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
         if not self.charm.unit.is_leader():
             return
 
-        if not repository.is_cross_model_relation:
+        if not repository.is_cross_model_relation or self.relation_name not in self.charm.meta.provides:
             return
 
         if repository.get_field('encryption-secret'):
