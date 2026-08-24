@@ -485,7 +485,7 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
         if not self.charm.unit.is_leader():
             return
 
-        if not repository.is_cross_model_relation or self.relation_name not in self.charm.meta.provides:
+        if not repository.is_cross_model_relation:
             return
 
         if repository.get_field('encryption-secret'):
@@ -1084,6 +1084,11 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
         self._assign_relation_alias(event.relation.id)
 
         if not self.charm.unit.is_leader():
+            return
+
+        remote_repository = self.interface.repository(event.relation.id, event.app)
+        if repository.is_cross_model_relation and not remote_repository.get_field('encryption-secret'):
+            event.defer()
             return
 
         # Generate all requests id so they are saved already.

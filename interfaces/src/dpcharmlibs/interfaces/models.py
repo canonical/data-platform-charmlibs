@@ -61,6 +61,7 @@ CROSS_MODEL_RELATION_CONSUMER_SECRETS = [
     'mtls-cert',
     'entity-name',
     'entity-password',
+    'password',
 ]
 
 
