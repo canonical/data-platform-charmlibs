@@ -1086,10 +1086,11 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
         if not self.charm.unit.is_leader():
             return
 
-        remote_repository = self.interface.repository(event.relation.id, event.app)
-        if repository.is_cross_model_relation and not remote_repository.get_field('encryption-secret'):
-            event.defer()
-            return
+        if repository.is_cross_model_relation and not repository.get_field('encryption-secret'):
+            for request in self._requests:
+                if request.entity_name:
+                    # Model will be written when the encryption key is set
+                    return
 
         # Generate all requests id so they are saved already.
         for request in self._requests:
