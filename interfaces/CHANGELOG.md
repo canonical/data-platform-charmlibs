@@ -1,3 +1,7 @@
+# 1.2.0 - 26 August 2026
+
+* Add prefixes and custom username dcapability
+
 # 1.1.0 - 03 June 2026
 
 * Add capability to encrypt and decrypt specific fields and store them in relation data

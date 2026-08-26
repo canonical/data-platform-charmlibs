@@ -267,9 +267,10 @@ class BaseCommonModel(BaseModel):
                 field_info.annotation in OptionalSecrets and len(field_info.metadata) == 1
             ) or field in hybrid_fields:
                 if field in hybrid_fields:
-                    if repository.is_cross_model_relation:
+                    if repository.is_cross_model_relation and not isinstance(self, ProviderCommonModel):
                         # secrets cannot be shared from requirer side in cross-model-relations
-                        # therefore ignore this field as it is stored in relation data
+                        # therefore ignore this field as it is stored in relation data unless
+                        # serialising the provider
                         continue
                     secret_group = (
                         field_info.metadata[0]
