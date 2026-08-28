@@ -107,7 +107,7 @@ def test_deploy_charms(
     juju_lxd_model.integrate(f'{ETCD_APP_NAME}:peer-certificates', TLS_NAME)
     juju_lxd_model.integrate(f'{ETCD_APP_NAME}:client-certificates', TLS_NAME)
     juju_lxd_model.offer(app=TLS_NAME, endpoint='certificates')
-    requirer_model.integrate(REQUIRER_APP_NAME, f'{juju_lxd_model.model.split(":")[1]}.{TLS_NAME}')
+    requirer_model.integrate(REQUIRER_APP_NAME, f'{juju_lxd_model.model}.{TLS_NAME}')
     juju_lxd_model.wait(
         lambda status: apps_active_and_agents_idle(status, ETCD_APP_NAME, TLS_NAME, idle_period=10),
         timeout=1200,
@@ -124,7 +124,7 @@ def test_deploy_charms(
 def test_relate_client_charm(juju_lxd_model: Juju, requirer_model: Juju):
     """Test normal client charm relation."""
     juju_lxd_model.offer(app=ETCD_APP_NAME, endpoint='etcd-client')
-    requirer_model.integrate(REQUIRER_APP_NAME, f'{juju_lxd_model.model.split(":")[1]}.{ETCD_APP_NAME}')
+    requirer_model.integrate(REQUIRER_APP_NAME, f'{juju_lxd_model.model}.{ETCD_APP_NAME}')
     requirer_model.wait(lambda status: apps_active_and_agents_idle(status, REQUIRER_APP_NAME, idle_period=10))
     juju_lxd_model.wait(lambda status: apps_active_and_agents_idle(status, ETCD_APP_NAME, idle_period=10))
 
