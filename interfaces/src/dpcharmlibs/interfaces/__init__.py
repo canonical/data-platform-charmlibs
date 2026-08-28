@@ -287,6 +287,7 @@ from .handlers import (
     ResourceRequirerEventHandler,
 )
 from .models import (
+    CROSS_MODEL_RELATION_CONSUMER_SECRETS,
     SECRET_PREFIX,
     BaseCommonModel,
     CommonModel,
@@ -352,6 +353,7 @@ from .utils import (
 )
 
 __all__ = [
+    'CROSS_MODEL_RELATION_CONSUMER_SECRETS',
     'SECRET_PREFIX',
     'AbstractRepository',
     'AuthenticationUpdatedEvent',

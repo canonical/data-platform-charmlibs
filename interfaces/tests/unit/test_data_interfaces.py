@@ -1159,6 +1159,7 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     'resource': 'data_platform',
                     'salt': 'kkkkkkkk',
                     'secret-mtls': None,
+                    'mtls-cert': None,
                 },
                 {
                     'entity-permissions': None,
@@ -1170,6 +1171,7 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     'resource': '',
                     'salt': 'xxxxxxxx',
                     'secret-mtls': None,
+                    'mtls-cert': None,
                 },
             ],
         }
@@ -1404,6 +1406,7 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     'extra-user-roles': 'CREATEDB,CREATEROLE',
                     'external-node-connectivity': False,
                     'secret-mtls': None,
+                    'mtls-cert': None,
                 },
                 {
                     'entity-permissions': None,
@@ -1415,6 +1418,7 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     'extra-user-roles': None,
                     'external-node-connectivity': False,
                     'secret-mtls': None,
+                    'mtls-cert': None,
                 },
             ],
         }
