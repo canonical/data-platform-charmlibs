@@ -169,6 +169,13 @@ def juju_lxd_model(request: pytest.FixtureRequest, juju: jubilant.Juju, lxd_clou
         juju.destroy_model(model_name, destroy_storage=True, force=True)
 
 
+@pytest.fixture(scope='module')
+def requirer_model(juju: jubilant.Juju, lxd_cloud: str, lxd_controller: str):
+    with jubilant.temp_model(cloud=lxd_cloud, controller=lxd_controller) as req_model:
+        req_model.wait_timeout = 1000
+        yield req_model
+
+
 @pytest.fixture
 def application_charm() -> pathlib.Path:
     """Build the application charm."""

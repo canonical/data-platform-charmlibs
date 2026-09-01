@@ -1,3 +1,7 @@
+# 1.1.1 - 28 August 2026
+
+* Add integration test coverage for cross-model relations in etcd
+
 # 1.1.0 - 03 June 2026
 
 * Add capability to encrypt and decrypt specific fields and store them in relation data
