@@ -683,6 +683,11 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             self.interface.write_model(
                 relation_id, response, context={'version': 'v0'}
             )  # {"database": "database-name", "secret-user": "uri", ...}
+            # Set expected prefix field if present
+            if response.prefix_resources:
+                self.interface.repository(relation_id).write_field(
+                    'prefix-databases', response.prefix_resources
+                )
             return
 
         model = self.interface.build_model(relation_id, DataContractV1[responses[0].__class__])
