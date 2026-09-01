@@ -1,6 +1,10 @@
-# 1.2.0 - 26 August 2026
+# 1.2.0 - 1 September 2026
 
-* Add prefixes and custom username dcapability
+* Add prefixes and custom username capability
+
+# 1.1.1 - 28 August 2026
+
+* Add integration test coverage for cross-model relations in etcd
 
 # 1.1.0 - 03 June 2026
 
