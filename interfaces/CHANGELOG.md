@@ -1,3 +1,7 @@
+# 1.2.0 - 1 September 2026
+
+* Add prefixes and custom username capability
+
 # 1.1.1 - 28 August 2026
 
 * Add integration test coverage for cross-model relations in etcd

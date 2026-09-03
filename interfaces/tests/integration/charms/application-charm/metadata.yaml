@@ -13,6 +13,8 @@ requires:
     interface: database_client
   first-database-roles:
     interface: database_client
+  first-database-username:
+    interface: database_client
   second-database-db:
     interface: database_client
   multiple-database-clusters:
@@ -38,3 +40,5 @@ requires:
     interface: etcd_client
   certificates:
     interface: tls-certificates
+  database-with-prefix:
+    interface: database_client

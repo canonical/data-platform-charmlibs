@@ -215,6 +215,9 @@ def build_model(
                         if encrypted_value := request.get(field):
                             decrypted_value = f.decrypt(encrypted_value.encode()).decode()
                             request[field] = decrypted_value
+                            # Handle password aliasing
+                            if field == 'password':
+                                request['entity-password'] = decrypted_value
             except (AttributeError, InvalidToken, TypeError, ValueError):
                 logger.warning('Could not decrypt sensitive field in cross-model relation')
         else:

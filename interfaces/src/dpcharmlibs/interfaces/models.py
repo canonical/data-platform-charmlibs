@@ -16,8 +16,9 @@
 import copy
 import json
 from logging import getLogger
-from typing import Annotated, Any, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar, get_args
 
+from ops.model import SecretNotFoundError
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -43,6 +44,7 @@ from dpcharmlibs.interfaces.types import (
     MtlsSecretStr,
     OptionalSecretBool,
     OptionalSecrets,
+    RequestedEntitySecretStr,
     SecretGroup,
     SecretString,
     TlsSecretBool,
@@ -57,6 +59,9 @@ SECRET_PREFIX = 'secret-'  # noqa: S105
 
 CROSS_MODEL_RELATION_CONSUMER_SECRETS = [
     'mtls-cert',
+    'entity-name',
+    'entity-password',
+    'password',
 ]
 
 
@@ -202,7 +207,11 @@ class BaseCommonModel(BaseModel):
                         # secrets cannot be shared from requirer side in cross-model-relations
                         # therefore ignore this field as it is stored in relation data
                         continue
-                    secret_group = SecretGroup(field.split('_')[0])
+                    secret_group = (
+                        field_info.metadata[0]
+                        if field_info.metadata
+                        else SecretGroup(get_args(get_args(field_info.annotation)[0])[-1])
+                    )
                 else:
                     secret_group = field_info.metadata[0]
 
@@ -216,7 +225,14 @@ class BaseCommonModel(BaseModel):
                 if not secret_uri:
                     continue
 
-                secret = repository.get_secret(secret_group, secret_uri=secret_uri, short_uuid=short_uuid)
+                try:
+                    secret = repository.get_secret(secret_group, secret_uri=secret_uri, short_uuid=short_uuid)
+                except SecretNotFoundError:
+                    # v0 deletes the requested entity secret
+                    if secret_group == 'requested-entity':  # noqa: S105
+                        logger.debug('Missing requested entity secret')
+                        continue
+                    raise
 
                 if not secret:
                     logger.info(f'No secret for group {secret_group} and short uuid {short_uuid}')
@@ -251,11 +267,16 @@ class BaseCommonModel(BaseModel):
                 field_info.annotation in OptionalSecrets and len(field_info.metadata) == 1
             ) or field in hybrid_fields:
                 if field in hybrid_fields:
-                    if repository.is_cross_model_relation:
+                    if repository.is_cross_model_relation and not isinstance(self, ProviderCommonModel):
                         # secrets cannot be shared from requirer side in cross-model-relations
-                        # therefore ignore this field as it is stored in relation data
+                        # therefore ignore this field as it is stored in relation data unless
+                        # serialising the provider
                         continue
-                    secret_group = SecretGroup(field.split('_')[0])
+                    secret_group = (
+                        field_info.metadata[0]
+                        if field_info.metadata
+                        else SecretGroup(get_args(get_args(field_info.annotation)[0])[-1])
+                    )
                 else:
                     secret_group = field_info.metadata[0]
 
@@ -387,6 +408,13 @@ class RequirerCommonModel(CommonModel):
     entity_permissions: list[EntityPermissionModel] | None = Field(default=None)
     secret_mtls: SecretString | None = Field(default=None)
     mtls_cert: MtlsSecretStr | str = Field(default=None)
+    secret_requested_entity: SecretString | None = Field(
+        default=None,
+        validation_alias=AliasChoices('requested-entity-secret', 'secret-requested-entity'),
+    )
+    entity_name: RequestedEntitySecretStr | str = Field(default=None)
+    entity_password: RequestedEntitySecretStr | str = Field(default=None, serialization_alias='password')
+    prefix_matching: Literal['all', 'only-existing'] | None = Field(default=None)
 
     @model_validator(mode='after')
     def validate_fields(self):
@@ -399,6 +427,9 @@ class RequirerCommonModel(CommonModel):
 
         if self.entity_type == 'GROUP' and self.extra_user_roles:
             raise ValueError('Inconsistent entity information. Use extra_group_roles instead')
+
+        if self.entity_password and not self.entity_name:
+            raise ValueError('Unable to set entity password without an entity name')
 
         return self
 
@@ -432,6 +463,7 @@ class ResourceProviderModel(ProviderCommonModel):
     entity_name: EntitySecretStr = Field(default=None)
     entity_password: EntitySecretStr = Field(default=None)
     version: str | None = Field(default=None)
+    prefix_resources: str | None = Field(default=None)
 
 
 class RequirerDataContractV0(RequirerCommonModel):

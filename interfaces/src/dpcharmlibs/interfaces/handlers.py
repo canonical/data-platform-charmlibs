@@ -35,6 +35,7 @@ from dpcharmlibs.interfaces.events import (
     ResourceCreatedEvent,
     ResourceEndpointsChangedEvent,
     ResourceEntityCreatedEvent,
+    ResourcePrefixResourcesChangedEvent,
     ResourceProvidesEvents,
     ResourceReadOnlyEndpointsChangedEvent,
     ResourceRequiresEvents,
@@ -627,6 +628,11 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             self.interface.write_model(
                 relation_id, response, context={'version': 'v0'}
             )  # {"database": "database-name", "secret-user": "uri", ...}
+            # Set expected prefix field if present
+            if response.prefix_resources:
+                self.interface.repository(relation_id).write_field(
+                    'prefix-databases', response.prefix_resources
+                )
             return
 
         model = self.interface.build_model(relation_id, DataContractV1[response.__class__])
@@ -677,6 +683,11 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             self.interface.write_model(
                 relation_id, response, context={'version': 'v0'}
             )  # {"database": "database-name", "secret-user": "uri", ...}
+            # Set expected prefix field if present
+            if response.prefix_resources:
+                self.interface.repository(relation_id).write_field(
+                    'prefix-databases', response.prefix_resources
+                )
             return
 
         model = self.interface.build_model(relation_id, DataContractV1[responses[0].__class__])
@@ -869,6 +880,10 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
                 self.on.define_event(
                     f'{relation_alias}_read_only_endpoints_changed',
                     ResourceReadOnlyEndpointsChangedEvent,
+                )
+                self.on.define_event(
+                    f'{relation_alias}_prefix_resources_changed',
+                    ResourcePrefixResourcesChangedEvent,
                 )
 
     ##############################################################################
@@ -1076,6 +1091,12 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
         if not self.charm.unit.is_leader():
             return
 
+        if repository.is_cross_model_relation and not repository.get_field('encryption-secret'):
+            for request in self._requests:
+                if request.entity_name:
+                    # Model will be written when the encryption key is set
+                    return
+
         # Generate all requests id so they are saved already.
         for request in self._requests:
             request.request_id = gen_hash(request.resource, request.salt)
@@ -1246,4 +1267,12 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
                 event.relation, app=event.app, unit=event.unit, response=response
             )
             self._emit_aliased_event(event, 'authentication_updated', response)
+            return
+
+        if 'prefix-resources' in _diff.added or 'prefix-resources' in _diff.changed:
+            logger.info(f'prefix resources updated for {response.resource} at {datetime.now()}')
+            self.on.prefix_resources_changed.emit(
+                event.relation, app=event.app, unit=event.unit, response=response
+            )
+            self._emit_aliased_event(event, 'prefix_resources_changed', response)
             return

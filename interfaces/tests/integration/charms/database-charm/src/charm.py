@@ -207,7 +207,7 @@ class Charm(common.Charm):
                     'command': '/usr/local/bin/docker-entrypoint.sh postgres',
                     'startup': 'enabled',
                     'environment': {
-                        'PGDATA': '/var/lib/postgresql/data/pgdata',
+                        'PGDATA': '/var/lib/postgresql/data/pgdata/data',
                         'POSTGRES_PASSWORD': self._stored.password,
                     },
                 }
@@ -227,9 +227,15 @@ class Charm(common.Charm):
 
         resource = request.resource
         extra_user_roles = request.extra_user_roles
+        username = request.entity_name
+        password = request.entity_password
 
-        username = f'relation_{relation_id}_{request.request_id}'
-        password = self._new_password()
+        if resource[-1] == '*':
+            resources = [f'{resource[:-1]}1', f'{resource[:-1]}2']
+        else:
+            resources = [resource]
+        username = username or f'relation_{relation_id}_{request.request_id}'
+        password = password or self._new_password()
         connection_string = (
             "dbname='postgres' user='postgres' host='localhost' "
             f"password='{self._stored.password}' connect_timeout=10"
@@ -238,12 +244,13 @@ class Charm(common.Charm):
         connection.autocommit = True
         cursor = connection.cursor()
         # Create the database, user and password. Also gives the user access to the database.
-        cursor.execute(f'CREATE DATABASE {resource};')
         cursor.execute(f"CREATE USER {username} WITH ENCRYPTED PASSWORD '{password}';")
-        cursor.execute(f'GRANT ALL PRIVILEGES ON DATABASE {resource} TO {username};')
-        # Add the roles to the user.
-        if extra_user_roles:
-            cursor.execute(f'ALTER USER {username} {extra_user_roles};')
+        for resource in resources:
+            cursor.execute(f'CREATE DATABASE {resource};')
+            cursor.execute(f'GRANT ALL PRIVILEGES ON DATABASE {resource} TO {username};')
+            # Add the roles to the user.
+            if extra_user_roles:
+                cursor.execute(f'ALTER USER {username} {extra_user_roles};')
         # Get the database version.
         cursor.execute('SELECT version();')
         version = cursor.fetchone()[0]
@@ -269,6 +276,7 @@ class Charm(common.Charm):
             username=username,
             endpoints=f'{self.model.get_binding("database").network.bind_address}:5432',
             version=version,
+            prefix_resources=','.join(resources) if len(resources) > 1 else None,
         )
         self.database.set_response(event.relation.id, response)
         self.unit.status = ActiveStatus()
@@ -291,8 +299,11 @@ class Charm(common.Charm):
         entity_type = request.entity_type
 
         # Generate a entity-name and a entity-password for the application.
-        rolename = self._new_rolename()
-        password = self._new_password()
+        rolename = request.entity_name
+        password = request.entity_password
+
+        rolename = rolename or self._new_rolename()
+        password = password or self._new_password()
 
         # Connect to the database.
         connection_string = (
