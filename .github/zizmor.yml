@@ -6,3 +6,4 @@ rules:
         "github/*": ref-pin
         "pypa/*": ref-pin
         "astral-sh/setup-uv": ref-pin
+        "tiobe/tics-github-action": ref-pin
