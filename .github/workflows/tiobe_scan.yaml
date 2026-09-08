@@ -31,7 +31,9 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Run coverage tests
-        run: uvx --from rust-just just combine-coverage interfaces
+        run: |
+          uvx --from rust-just just unit interfaces 
+          uvx --from rust-just just combine-coverage interfaces
 
       - name: Move results to the necessary folder for TICS
         run: |
