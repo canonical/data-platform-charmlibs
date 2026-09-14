@@ -257,7 +257,7 @@ jobs:
       - name: Install concierge
         run: sudo snap install --classic concierge
 
-      - name: Prepare Juju for microk8s
+      - name: Prepare Juju for k8s
         if: ${{ matrix.tests.substrate == 'k8s' }}
         run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=3.x/stable -p k8s
 
