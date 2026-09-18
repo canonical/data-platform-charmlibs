@@ -1261,7 +1261,7 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
             self._emit_aliased_event(event, 'read_only_endpoints_changed', response)
             return
 
-        if 'secret-tls' in _diff.added or 'secret-tls' in _diff.changed:
+        if 'secret-tls' in _diff.added or 'secret-tls' in _diff.changed or 'secret-tls' in _diff.deleted:
             logger.info(f'auth updated for {response.resource} at {datetime.now()}')
             self.on.authentication_updated.emit(
                 event.relation, app=event.app, unit=event.unit, response=response
