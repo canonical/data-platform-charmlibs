@@ -1,3 +1,7 @@
+# 1.2.1 - 18 September 2026
+
+* Bugfix: Emit `authentication_updated` event also when TLS secret was deleted
+
 # 1.2.0 - 1 September 2026
 
 * Add prefixes and custom username capability
