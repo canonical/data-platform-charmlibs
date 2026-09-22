@@ -586,10 +586,12 @@ class ResourceProviderEventHandler(EventHandlers, Generic[TRequirerCommonModel])
             old_name = request_model.original_field
             request_model.request_id = None  # For safety, let's ensure that we don't have a model.
             self._handle_event(event, repository, request_model)
-            logger.info(f"Patching databag for v0 compatibility: replacing 'resource' by '{old_name}'")
-            self.interface.repository(
-                event.relation.id,
-            ).write_field(old_name, request_model.resource)
+            # The requirer may not have requested a resource yet (e.g. only requested-secrets).
+            if old_name:
+                logger.info(f"Patching databag for v0 compatibility: replacing 'resource' by '{old_name}'")
+                self.interface.repository(
+                    event.relation.id,
+                ).write_field(old_name, request_model.resource)
         else:
             request_model = build_model(repository, RequirerDataContractV1[self.request_model])
             if self.bulk_event:

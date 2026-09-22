@@ -67,12 +67,18 @@ class AbstractRepository(ABC):
 
     @abstractmethod
     def write_field(self, field: str, value: Any) -> None:
-        """Writes the value in the field, without any secret support."""
+        """Writes the value in the field, without any secret support.
+
+        Writing None or an empty string removes the field, matching Juju and ops behavior.
+        """
         ...
 
     @abstractmethod
     def write_fields(self, mapping: dict[str, Any]) -> None:
-        """Writes the values of mapping in the fields without any secret support."""
+        """Writes the values of mapping in the fields without any secret support.
+
+        Writing None or an empty string removes the field, matching Juju and ops behavior.
+        """
         ...
 
     @abstractmethod
@@ -211,7 +217,9 @@ class OpsRepository(AbstractRepository):
         if self.component not in self.relation.data:
             logger.info(f'Component {self.component} not in relation {self.relation}')
             return
-        if not value:
+        if value is None or value == '':
+            logger.debug('Empty value for field %s, removing it from the databag', field)
+            self.delete_field(field)
             return
         self.relation.data[self.component].update({field: value})
 
@@ -224,7 +232,8 @@ class OpsRepository(AbstractRepository):
         if self.component not in self.relation.data:
             logger.info(f'Component {self.component} not in relation {self.relation}')
             return
-        (self.write_field(field, value) for field, value in mapping.items())
+        for field, value in mapping.items():
+            self.write_field(field, value)
 
     @override
     @ensure_leader_for_app
@@ -270,7 +279,8 @@ class OpsRepository(AbstractRepository):
     @override
     @ensure_leader_for_app
     def delete_fields(self, *fields: str) -> None:
-        (self.delete_field(field) for field in fields)
+        for field in fields:
+            self.delete_field(field)
 
     @override
     @ensure_leader_for_app

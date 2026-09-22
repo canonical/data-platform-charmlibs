@@ -1,3 +1,8 @@
+# 1.2.2 - 22 September 2026
+
+* Bugfix: Writing `None` or an empty string now deletes the field, matching Juju and ops behavior
+* Bugfix: `write_fields` and `delete_fields` now actually write and delete the fields
+
 # 1.2.1 - 18 September 2026
 
 * Bugfix: Emit `authentication_updated` event also when TLS secret was deleted
