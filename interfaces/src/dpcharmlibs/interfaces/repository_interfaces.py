@@ -239,7 +239,10 @@ def build_model(
 
 
 def write_model(repository: AbstractRepository, model: BaseModel, context: dict[str, str] | None = None):
-    """Writes the data stored in the model using the repository object."""
+    """Writes the data stored in the model using the repository object.
+
+    Fields that dump to None or an empty string are removed from the databag.
+    """
     context = context or {}
     dumped = model.model_dump(mode='json', context={'repository': repository} | context, exclude_none=False)
 
