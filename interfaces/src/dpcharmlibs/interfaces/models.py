@@ -55,7 +55,7 @@ from dpcharmlibs.interfaces.utils import RESOURCE_ALIASES, gen_hash, gen_salt
 
 logger = getLogger(__name__)
 
-SECRET_PREFIX = 'secret-'  # noqa: S105
+SECRET_PREFIX = 'secret-'  # nosec: B105 #noqa: S105
 
 CROSS_MODEL_RELATION_CONSUMER_SECRETS = [
     'mtls-cert',
@@ -373,8 +373,8 @@ class CommonModel(BaseCommonModel):
         extra='allow',
     )
 
-    resource: str = Field(validation_alias=AliasChoices(*RESOURCE_ALIASES), default='')
-    request_id: str | None = Field(default=None)
+    resource: Annotated[str, Field(validation_alias=AliasChoices(*RESOURCE_ALIASES), default='')] = ''
+    request_id: Annotated[str | None, Field(default=None)] = None
     salt: str = Field(
         description='This salt is used to create unique hashes even when other fields map 1-1',
         default_factory=gen_salt,
@@ -401,20 +401,25 @@ class RequirerCommonModel(CommonModel):
     external_node_connectivity is used to indicate that the URI is for external client.
     """
 
-    extra_user_roles: str | None = Field(default=None)
-    extra_group_roles: str | None = Field(default=None)
-    external_node_connectivity: bool = Field(default=False)
-    entity_type: Literal['USER', 'GROUP'] | None = Field(default=None)
-    entity_permissions: list[EntityPermissionModel] | None = Field(default=None)
-    secret_mtls: SecretString | None = Field(default=None)
-    mtls_cert: MtlsSecretStr | str = Field(default=None)
-    secret_requested_entity: SecretString | None = Field(
-        default=None,
-        validation_alias=AliasChoices('requested-entity-secret', 'secret-requested-entity'),
-    )
-    entity_name: RequestedEntitySecretStr | str = Field(default=None)
-    entity_password: RequestedEntitySecretStr | str = Field(default=None, serialization_alias='password')
-    prefix_matching: Literal['all', 'only-existing'] | None = Field(default=None)
+    extra_user_roles: Annotated[str | None, Field(default=None)] = None
+    extra_group_roles: Annotated[str | None, Field(default=None)] = None
+    external_node_connectivity: Annotated[bool, Field(default=False)] = False
+    entity_type: Annotated[Literal['USER', 'GROUP'] | None, Field(default=None)] = None
+    entity_permissions: Annotated[list[EntityPermissionModel] | None, Field(default=None)] = None
+    secret_mtls: Annotated[SecretString | None, Field(default=None)] = None
+    mtls_cert: Annotated[MtlsSecretStr | str, Field(default=None)] = None
+    secret_requested_entity: Annotated[
+        SecretString | None,
+        Field(
+            default=None,
+            validation_alias=AliasChoices('requested-entity-secret', 'secret-requested-entity'),
+        ),
+    ] = None
+    entity_name: Annotated[RequestedEntitySecretStr | str, Field(default=None)] = None
+    entity_password: Annotated[
+        RequestedEntitySecretStr | str, Field(default=None, serialization_alias='password')
+    ] = None
+    prefix_matching: Annotated[Literal['all', 'only-existing'] | None, Field(default=None)] = None
 
     @model_validator(mode='after')
     def validate_fields(self):
@@ -443,36 +448,36 @@ class ProviderCommonModel(CommonModel):
     secret_extra is a secret URI for all additional secrets requested.
     """
 
-    endpoints: str | None = Field(default=None)
-    read_only_endpoints: str | None = Field(default=None)
-    secret_user: SecretString | None = Field(default=None)
-    secret_tls: SecretString | None = Field(default=None)
-    secret_extra: SecretString | None = Field(default=None)
-    secret_entity: SecretString | None = Field(default=None)
+    endpoints: Annotated[str | None, Field(default=None)] = None
+    read_only_endpoints: Annotated[str | None, Field(default=None)] = None
+    secret_user: Annotated[SecretString | None, Field(default=None)] = None
+    secret_tls: Annotated[SecretString | None, Field(default=None)] = None
+    secret_extra: Annotated[SecretString | None, Field(default=None)] = None
+    secret_entity: Annotated[SecretString | None, Field(default=None)] = None
 
 
 class ResourceProviderModel(ProviderCommonModel):
     """Extended model including the deserialized fields."""
 
-    username: UserSecretStr = Field(default=None)
-    password: UserSecretStr = Field(default=None)
-    uris: UserSecretStr = Field(default=None)
-    read_only_uris: UserSecretStr = Field(default=None)
-    tls: TlsSecretBool = Field(default=None)
-    tls_ca: TlsSecretStr = Field(default=None)
-    entity_name: EntitySecretStr = Field(default=None)
-    entity_password: EntitySecretStr = Field(default=None)
-    version: str | None = Field(default=None)
-    prefix_resources: str | None = Field(default=None)
+    username: Annotated[UserSecretStr, Field(default=None)] = None
+    password: Annotated[UserSecretStr, Field(default=None)] = None
+    uris: Annotated[UserSecretStr, Field(default=None)] = None
+    read_only_uris: Annotated[UserSecretStr, Field(default=None)] = None
+    tls: Annotated[TlsSecretBool, Field(default=None)] = None
+    tls_ca: Annotated[TlsSecretStr, Field(default=None)] = None
+    entity_name: Annotated[EntitySecretStr, Field(default=None)] = None
+    entity_password: Annotated[EntitySecretStr, Field(default=None)] = None
+    version: Annotated[str | None, Field(default=None)] = None
+    prefix_resources: Annotated[str | None, Field(default=None)] = None
 
 
 class RequirerDataContractV0(RequirerCommonModel):
     """Backward compatibility."""
 
-    version: Literal['v0'] = Field(default='v0')
-    encryption_secret: str | None = Field(default=None)
+    version: Annotated[Literal['v0'], Field(default='v0')] = 'v0'
+    encryption_secret: Annotated[str | None, Field(default=None)] = None
 
-    original_field: str = Field(exclude=True, default='')
+    original_field: Annotated[str, Field(exclude=True, default='')] = ''
 
     @model_validator(mode='before')
     @classmethod
@@ -497,9 +502,9 @@ TRequirerCommonModel = TypeVar('TRequirerCommonModel', bound=RequirerCommonModel
 class RequirerDataContractV1(BaseModel, Generic[TRequirerCommonModel]):
     """The new Data Contract."""
 
-    version: Literal['v1'] = Field(default='v1')
+    version: Annotated[Literal['v1'], Field(default='v1')] = 'v1'
     requests: list[TRequirerCommonModel] = Field(default_factory=list)
-    encryption_secret: str | None = Field(default=None)
+    encryption_secret: Annotated[str | None, Field(default=None)] = None
 
 
 def discriminate_on_version(payload: Any) -> str:
@@ -525,9 +530,9 @@ class DataContractV0(ResourceProviderModel):
 class DataContractV1(BaseModel, Generic[TResourceProviderModel]):
     """The Data contract of the response, for V1."""
 
-    version: Literal['v1'] = Field(default='v1')
+    version: Annotated[Literal['v1'], Field(default='v1')] = 'v1'
     requests: list[TResourceProviderModel] = Field(default_factory=list)
-    encryption_secret: str | None = Field(default=None)
+    encryption_secret: Annotated[str | None, Field(default=None)] = None
 
 
 DataContract = TypeAdapter(DataContractV1[ResourceProviderModel])
@@ -561,8 +566,8 @@ class KafkaResponseModel(ResourceProviderModel):
 class ValkeyResponseModel(ResourceProviderModel):
     """Valkey response model."""
 
-    sentinel_endpoints: str | None = Field(default=None)
-    mode: str | None = Field(default=None)
+    sentinel_endpoints: Annotated[str | None, Field(default=None)] = None
+    mode: Annotated[str | None, Field(default=None)] = None
 
 
 class RelationStatus(BaseModel):
