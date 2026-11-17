@@ -18,6 +18,8 @@ They are then used by the edge functions build_model and write_model to serializ
 pydantic models.
 """
 
+from __future__ import annotations
+
 import copy
 import json
 from abc import ABC, ABCMeta, abstractmethod
@@ -145,11 +147,11 @@ class OpsRepositoryMeta(ABCMeta):
     This allows a singleton class-like interface, but creates only one repository per relation + component.
     """
 
-    _instances: ClassVar[dict[str, SecretCache]] = {}
+    _instances: ClassVar[dict[str, OpsRepositoryMeta]] = {}
 
     def __call__(
         cls, model: Model, relation: Relation | None, component: Application | Unit, *args, **kwargs
-    ) -> SecretCache:
+    ) -> OpsRepositoryMeta:
         """Overload __call__ method to create the correct object."""
         unique_name = f'{model.uuid}-{relation.id if relation else 0}{component.name.replace("/", "-")}'
         if not cls._instances.get(unique_name, None):
