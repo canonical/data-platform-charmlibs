@@ -1148,7 +1148,8 @@ class ResourceRequirerEventHandler(EventHandlers, Generic[TResourceProviderModel
             logger.info('Missing data to compute diffs')
             return
 
-        request_map = TypeAdapter(dict[str, self._request_model]).validate_json(data)
+        _local_type = dict[str, self._request_model]
+        request_map = TypeAdapter(_local_type).validate_json(data)
 
         for response in response_model.requests:
             response_id = response.request_id or gen_hash(response.resource, response.salt)
