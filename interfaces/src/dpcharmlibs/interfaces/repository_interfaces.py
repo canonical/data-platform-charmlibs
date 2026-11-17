@@ -20,6 +20,7 @@ It helps bring a more object oriented interface that is used by event handlers (
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from logging import getLogger
 from typing import TYPE_CHECKING, Generic, TypeVar, overload
 
@@ -190,6 +191,7 @@ class OpsOtherPeerUnitRepositoryInterface(RepositoryInterface[OpsOtherPeerUnitRe
         super().__init__(model, relation_name, unit, OpsOtherPeerUnitRepository, data_model)
 
 
+@lru_cache(typed=True)
 def build_model(
     repository: AbstractRepository,
     model: type[TCommon] | TypeAdapter[TCommon] | type[TCommonBis] | TypeAdapter[TCommonBis],

@@ -39,6 +39,7 @@ from dpcharmlibs.interfaces import (
     ResourceRequirerEventHandler,
     ResourceRequiresEvents,
     SecretGroup,
+    build_model,
 )
 from dpcharmlibs.interfaces.repository_interfaces import (
     TCommon,
@@ -246,11 +247,13 @@ class DataProvidesBaseTests(ABC):
         relation = self.harness.model.get_relation(self.relation_name, self.rel_id)
         # Use a variable to easily update the relation changed event data during the test.
 
-        data_model = ResourceProviderModel.model_validate({
-            'resource': 'blah',
-            'request-id': '',
-            'secret-user': 'secret://deabeef',
-        })
+        data_model = ResourceProviderModel.model_validate(
+            {
+                'resource': 'blah',
+                'request-id': '',
+                'secret-user': 'secret://deabeef',
+            }
+        )
         # Test with new data added to the relation databag.
         result = self.harness.charm.provider.compute_diff(relation, request=data_model, store=True)
         assert result == Diff({'request-id', 'salt', 'resource', 'secret-user'}, set(), set())
@@ -285,13 +288,15 @@ class DataProvidesBaseTests(ABC):
             'application',
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        self.DATABASE_FIELD: DATABASE,
-                        'request-id': 'c759221a6c14c72a',
-                        'salt': 'kkkkkkkk',
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            self.DATABASE_FIELD: DATABASE,
+                            'request-id': 'c759221a6c14c72a',
+                            'salt': 'kkkkkkkk',
+                        }
+                    ]
+                ),
             },
         )
         response = ResourceProviderModel(
@@ -309,13 +314,15 @@ class DataProvidesBaseTests(ABC):
 
         # Check that the credentials are present in the relation.
         relation = self.harness.get_relation_data(self.rel_id, self.app_name)
-        assert json.loads(relation['data']) == ({
-            'c759221a6c14c72a': {
-                self.DATABASE_FIELD: DATABASE,
-                'salt': 'kkkkkkkk',
-                'request-id': 'c759221a6c14c72a',
+        assert json.loads(relation['data']) == (
+            {
+                'c759221a6c14c72a': {
+                    self.DATABASE_FIELD: DATABASE,
+                    'salt': 'kkkkkkkk',
+                    'request-id': 'c759221a6c14c72a',
+                }
             }
-        })
+        )
 
         requests = json.loads(relation['requests'])
         secret_id = requests[0][f'{SECRET_PREFIX}user']
@@ -335,14 +342,16 @@ class DataProvidesBaseTests(ABC):
             'application',
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        self.DATABASE_FIELD: DATABASE,
-                        'request-id': 'c759221a6c14c72a',
-                        'salt': 'kkkkkkkk',
-                        'entity-type': 'USER',
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            self.DATABASE_FIELD: DATABASE,
+                            'request-id': 'c759221a6c14c72a',
+                            'salt': 'kkkkkkkk',
+                            'entity-type': 'USER',
+                        }
+                    ]
+                ),
             },
         )
 
@@ -361,14 +370,16 @@ class DataProvidesBaseTests(ABC):
         relation = self.harness.get_relation_data(self.rel_id, self.app_name)
 
         # Check that the entity credentials are present in the relation.
-        assert relation['data'] == json.dumps({
-            'c759221a6c14c72a': {
-                self.DATABASE_FIELD: DATABASE,
-                'request-id': 'c759221a6c14c72a',
-                'salt': 'kkkkkkkk',
-                'entity-type': 'USER',
+        assert relation['data'] == json.dumps(
+            {
+                'c759221a6c14c72a': {
+                    self.DATABASE_FIELD: DATABASE,
+                    'request-id': 'c759221a6c14c72a',
+                    'salt': 'kkkkkkkk',
+                    'entity-type': 'USER',
+                }
             }
-        })
+        )
 
         requests = json.loads(relation['requests'])
         secret_id = requests[0][f'{SECRET_PREFIX}entity']
@@ -561,15 +572,17 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
             'application',
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        self.DATABASE_FIELD: DATABASE,
-                        'extra-user-roles': EXTRA_USER_ROLES,
-                        'external-node-connectivity': True,
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            self.DATABASE_FIELD: DATABASE,
+                            'extra-user-roles': EXTRA_USER_ROLES,
+                            'external-node-connectivity': True,
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                        }
+                    ]
+                ),
             },
         )
 
@@ -591,14 +604,16 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
             'application',
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        self.DATABASE_FIELD: DATABASE,
-                        'entity-type': ENTITY_USER,
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            self.DATABASE_FIELD: DATABASE,
+                            'entity-type': ENTITY_USER,
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                        }
+                    ]
+                ),
             },
         )
 
@@ -634,6 +649,9 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
         self.harness.update_relation_data(self.rel_id, self.app_name, {'data': '{}'})
         _on_resource_entity_requested.reset_mock()
 
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
+
         # Simulate the request of a new group plus extra roles.
         self.harness.update_relation_data(
             self.rel_id,
@@ -666,16 +684,18 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
             'application',
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        self.DATABASE_FIELD: DATABASE,
-                        'entity-type': ENTITY_USER,
-                        'entity-permissions': ENTITY_PERMISSIONS,
-                        'extra-user-roles': EXTRA_USER_ROLES,
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            self.DATABASE_FIELD: DATABASE,
+                            'entity-type': ENTITY_USER,
+                            'entity-permissions': ENTITY_PERMISSIONS,
+                            'extra-user-roles': EXTRA_USER_ROLES,
+                        }
+                    ]
+                ),
             },
         )
 
@@ -692,6 +712,8 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
         # Reset the relation data keys + mock count
         self.harness.update_relation_data(self.rel_id, self.app_name, {'data': '{}'})
         _on_resource_entity_requested.reset_mock()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Simulate the request of a new group plus extra roles.
         self.harness.update_relation_data(
@@ -699,17 +721,19 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
             'application',
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        self.DATABASE_FIELD: DATABASE,
-                        'entity-type': ENTITY_GROUP,
-                        'entity-permissions': ENTITY_PERMISSIONS,
-                        'extra-user-roles': '',
-                        'extra-group-roles': EXTRA_GROUP_ROLES,
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            self.DATABASE_FIELD: DATABASE,
+                            'entity-type': ENTITY_GROUP,
+                            'entity-permissions': ENTITY_PERMISSIONS,
+                            'extra-user-roles': '',
+                            'extra-group-roles': EXTRA_GROUP_ROLES,
+                        }
+                    ]
+                ),
             },
         )
 
@@ -737,6 +761,9 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
                 'extra-user-roles': EXTRA_USER_ROLES,
             },
         )
+
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Simulate the request to update user permissions.
         self.harness.update_relation_data(
@@ -771,17 +798,22 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
             'application',
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        self.DATABASE_FIELD: DATABASE,
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'entity-type': ENTITY_USER,
-                        'extra-user-roles': EXTRA_USER_ROLES,
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            self.DATABASE_FIELD: DATABASE,
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'entity-type': ENTITY_USER,
+                            'extra-user-roles': EXTRA_USER_ROLES,
+                        }
+                    ]
+                ),
             },
         )
+
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Simulate the request to update user permissions.
         self.harness.update_relation_data(
@@ -789,16 +821,18 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
             'application',
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        self.DATABASE_FIELD: DATABASE,
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'entity-type': ENTITY_USER,
-                        'entity-permissions': ENTITY_PERMISSIONS,
-                        'extra-user-roles': EXTRA_USER_ROLES,
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            self.DATABASE_FIELD: DATABASE,
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'entity-type': ENTITY_USER,
+                            'entity-permissions': ENTITY_PERMISSIONS,
+                            'extra-user-roles': EXTRA_USER_ROLES,
+                        }
+                    ]
+                ),
             },
         )
 
@@ -1019,11 +1053,13 @@ class DataRequirerBaseTests(ABC):
         rel_id = self.add_relation(self.harness, application)
         relation = self.harness.model.get_relation(self.relation_name, rel_id)
 
-        data_model = ResourceProviderModel.model_validate({
-            'resource': 'blah',
-            'request-id': '',
-            'secret-user': 'secret://deadbeef',
-        })
+        data_model = ResourceProviderModel.model_validate(
+            {
+                'resource': 'blah',
+                'request-id': '',
+                'secret-user': 'secret://deadbeef',
+            }
+        )
 
         # Test with new data added to the relation databag.
         result = self.harness.charm.requirer.compute_diff(relation, request=data_model, store=True)
@@ -1088,10 +1124,12 @@ class TestDatabaseRequiresNoRelations(DataRequirerBaseTests, unittest.TestCase):
         pass
 
     def test_hide_relation_on_broken_event(self):
-        secret = self.harness.charm.app.add_secret({
-            'username': 'test-username',
-            'password': 'test-password',
-        })
+        secret = self.harness.charm.app.add_secret(
+            {
+                'username': 'test-username',
+                'password': 'test-password',
+            }
+        )
         with self.assertLogs(logger, 'INFO') as logs:
             rel_id = self.add_relation(self.harness, self.provider)
             self.harness.update_relation_data(
@@ -1099,20 +1137,24 @@ class TestDatabaseRequiresNoRelations(DataRequirerBaseTests, unittest.TestCase):
                 self.provider,
                 {
                     'version': 'v1',
-                    'requests': json.dumps([
+                    'requests': json.dumps(
+                        [
+                            {
+                                'salt': 'kkkkkkkk',
+                                'request-id': 'c759221a6c14c72a',
+                                'secret-user': secret.id,
+                            }
+                        ]
+                    ),
+                    'data': json.dumps(
                         {
-                            'salt': 'kkkkkkkk',
-                            'request-id': 'c759221a6c14c72a',
-                            'secret-user': secret.id,
+                            'c759221a6c14c72a': {
+                                'salt': 'kkkkkkkk',
+                                'request-id': 'c759221a6c14c72a',
+                                'resource': DATABASE,
+                            }
                         }
-                    ]),
-                    'data': json.dumps({
-                        'c759221a6c14c72a': {
-                            'salt': 'kkkkkkkk',
-                            'request-id': 'c759221a6c14c72a',
-                            'resource': DATABASE,
-                        }
-                    }),
+                    ),
                 },
             )
 
@@ -1205,30 +1247,38 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     def test_on_resource_created_secrets(self, _on_resource_created):
         """Asserts on_resource_created is called when the credentials are set in the relation."""
         # Simulate sharing the credentials of a new created database.
-        secret = self.harness.charm.app.add_secret({
-            'username': 'test-username',
-            'password': 'test-password',
-        })
+        secret = self.harness.charm.app.add_secret(
+            {
+                'username': 'test-username',
+                'password': 'test-password',
+            }
+        )
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
                 'version': 'v1',
-                'requests': json.dumps([
+                'requests': json.dumps(
+                    [
+                        {
+                            f'{SECRET_PREFIX}user': secret.id,
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                        }
+                    ]
+                ),
+                'data': json.dumps(
                     {
-                        f'{SECRET_PREFIX}user': secret.id,
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
+                        'c759221a6c14c72a': {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'resource': DATABASE,
+                        }
                     }
-                ]),
-                'data': json.dumps({
-                    'c759221a6c14c72a': {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'resource': DATABASE,
-                    }
-                }),
+                ),
             },
         )
 
@@ -1247,29 +1297,35 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
         rel_id = self.add_relation(self.harness, self.provider)
 
-        secret2 = self.harness.charm.app.add_secret({
-            'username': 'test-username-2',
-            'password': 'test-password-2',
-        })
+        secret2 = self.harness.charm.app.add_secret(
+            {
+                'username': 'test-username-2',
+                'password': 'test-password-2',
+            }
+        )
         self.harness.update_relation_data(
             rel_id,
             self.provider,
             {
                 'version': 'v1',
-                'requests': json.dumps([
+                'requests': json.dumps(
+                    [
+                        {
+                            f'{SECRET_PREFIX}user': secret2.id,
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                        }
+                    ]
+                ),
+                'data': json.dumps(
                     {
-                        f'{SECRET_PREFIX}user': secret2.id,
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
+                        'c759221a6c14c72a': {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'resource': DATABASE,
+                        }
                     }
-                ]),
-                'data': json.dumps({
-                    'c759221a6c14c72a': {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'resource': DATABASE,
-                    }
-                }),
+                ),
             },
         )
 
@@ -1290,30 +1346,38 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     @pytest.mark.usefixtures('only_with_juju_secrets')
     def test_on_resource_entity_created_secrets(self, _on_resource_entity_created):
         """Asserts on_resource_entity_created is called when the credentials are set in the relation."""
-        secret = self.harness.charm.app.add_secret({
-            'entity-name': 'test-username',
-            'entity-password': 'test-password',
-        })
+        secret = self.harness.charm.app.add_secret(
+            {
+                'entity-name': 'test-username',
+                'entity-password': 'test-password',
+            }
+        )
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'data': json.dumps({
-                    '9ecfabfbb5258f88': {
-                        'salt': 'xxxxxxxx',
-                        'request-id': '9ecfabfbb5258f88',
-                        'entity-type': ENTITY_USER,
-                    }
-                }),
-                'version': 'v1',
-                'requests': json.dumps([
+                'data': json.dumps(
                     {
-                        'salt': 'xxxxxxxx',
-                        'request-id': '9ecfabfbb5258f88',
-                        'secret-entity': secret.id,
+                        '9ecfabfbb5258f88': {
+                            'salt': 'xxxxxxxx',
+                            'request-id': '9ecfabfbb5258f88',
+                            'entity-type': ENTITY_USER,
+                        }
                     }
-                ]),
+                ),
+                'version': 'v1',
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'xxxxxxxx',
+                            'request-id': '9ecfabfbb5258f88',
+                            'secret-entity': secret.id,
+                        }
+                    ]
+                ),
             },
         )
 
@@ -1337,21 +1401,25 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             rel_id,
             self.provider,
             {
-                'data': json.dumps({
-                    '9ecfabfbb5258f88': {
-                        'salt': 'xxxxxxxx',
-                        'request-id': '9ecfabfbb5258f88',
-                        'entity-type': ENTITY_GROUP,
-                    }
-                }),
-                'version': 'v1',
-                'requests': json.dumps([
+                'data': json.dumps(
                     {
-                        'salt': 'xxxxxxxx',
-                        'request-id': '9ecfabfbb5258f88',
-                        'secret-entity': secret2.id,
+                        '9ecfabfbb5258f88': {
+                            'salt': 'xxxxxxxx',
+                            'request-id': '9ecfabfbb5258f88',
+                            'entity-type': ENTITY_GROUP,
+                        }
                     }
-                ]),
+                ),
+                'version': 'v1',
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'xxxxxxxx',
+                            'request-id': '9ecfabfbb5258f88',
+                            'secret-entity': secret2.id,
+                        }
+                    ]
+                ),
             },
         )
         # Assert the correct hook is called.
@@ -1365,23 +1433,27 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
     def test_fetch_relation_data_secrets_fields(self):
         # Set user secret for the relation.
-        secret = self.harness.charm.app.add_secret({
-            'username': 'test-username',
-            'password': 'test-password',
-        })
+        secret = self.harness.charm.app.add_secret(
+            {
+                'username': 'test-username',
+                'password': 'test-password',
+            }
+        )
 
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
                 'version': 'v1',
-                'requests': json.dumps([
-                    {
-                        f'{SECRET_PREFIX}user': secret.id,
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                    }
-                ]),
+                'requests': json.dumps(
+                    [
+                        {
+                            f'{SECRET_PREFIX}user': secret.id,
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                        }
+                    ]
+                ),
             },
         )
         # Set some data in the relation.
@@ -1475,25 +1547,31 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     @patch.object(charm, '_on_endpoints_changed')
     def test_on_endpoints_changed(self, _on_endpoints_changed):
         """Asserts the correct call to on_endpoints_changed."""
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
         # Simulate adding endpoints to the relation.
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'endpoints': 'host1:port,host2:port',
+                        }
+                    ]
+                ),
+                'data': json.dumps(
                     {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'endpoints': 'host1:port,host2:port',
+                        'c759221a6c14c72a': {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'resource': DATABASE,
+                        }
                     }
-                ]),
-                'data': json.dumps({
-                    'c759221a6c14c72a': {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'resource': DATABASE,
-                    }
-                }),
+                ),
             },
         )
 
@@ -1507,37 +1585,45 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
         # Reset the mock call count.
         _on_endpoints_changed.reset_mock()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Set the same data in the relation (no change in the endpoints).
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
-                    {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'endpoints': 'host1:port,host2:port',
-                    }
-                ])
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'endpoints': 'host1:port,host2:port',
+                        }
+                    ]
+                )
             },
         )
 
         # Assert the hook was not called again.
         _on_endpoints_changed.assert_not_called()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Then, change the endpoints in the relation.
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
-                    {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'endpoints': 'host1:port,host2:port,host3:port',
-                    }
-                ])
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'endpoints': 'host1:port,host2:port,host3:port',
+                        }
+                    ]
+                )
             },
         )
 
@@ -1547,25 +1633,31 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     @patch.object(charm, '_on_read_only_endpoints_changed')
     def test_on_read_only_endpoints_changed(self, _on_read_only_endpoints_changed):
         """Asserts the correct call to on_read_only_endpoints_changed."""
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
         # Simulate adding endpoints to the relation.
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'read-only-endpoints': 'host1:port,host2:port',
+                        }
+                    ]
+                ),
+                'data': json.dumps(
                     {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'read-only-endpoints': 'host1:port,host2:port',
+                        'c759221a6c14c72a': {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'resource': DATABASE,
+                        }
                     }
-                ]),
-                'data': json.dumps({
-                    'c759221a6c14c72a': {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'resource': DATABASE,
-                    }
-                }),
+                ),
             },
         )
 
@@ -1585,31 +1677,37 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
-                    {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'read-only-endpoints': 'host1:port,host2:port',
-                    }
-                ])
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'read-only-endpoints': 'host1:port,host2:port',
+                        }
+                    ]
+                )
             },
         )
 
         # Assert the hook was not called again.
         _on_read_only_endpoints_changed.assert_not_called()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Then, change the endpoints in the relation.
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
-                    {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'read-only-endpoints': 'host1:port,host2:port,host3:port',
-                    }
-                ])
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'read-only-endpoints': 'host1:port,host2:port,host3:port',
+                        }
+                    ]
+                )
             },
         )
 
@@ -1620,32 +1718,42 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     def test_additional_fields_are_accessible(self, _on_resource_created):
         """Asserts additional fields are accessible using the charm library after being set."""
         secret = self.harness.charm.app.add_secret({'tls': 'true', 'tls-ca': 'deadbeef'})
-        secret_user = self.harness.charm.app.add_secret({
-            'username': 'dead',
-            'password': 'beef',
-            'uris': 'host1:port,host2:port',
-        })
+        secret_user = self.harness.charm.app.add_secret(
+            {
+                'username': 'dead',
+                'password': 'beef',
+                'uris': 'host1:port,host2:port',
+            }
+        )
+
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
+
         # Simulate setting the additional fields.
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'secret-tls': secret.id,
+                            'secret-user': secret_user.id,
+                            'version': '1.0',
+                        }
+                    ]
+                ),
+                'data': json.dumps(
                     {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'secret-tls': secret.id,
-                        'secret-user': secret_user.id,
-                        'version': '1.0',
+                        'c759221a6c14c72a': {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'resource': DATABASE,
+                        }
                     }
-                ]),
-                'data': json.dumps({
-                    'c759221a6c14c72a': {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'resource': DATABASE,
-                    }
-                }),
+                ),
             },
         )
 
@@ -1663,25 +1771,31 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     @pytest.mark.usefixtures('only_with_juju_secrets')
     def test_on_prefix_resources_changed(self, _on_prefix_resources_changed):
         """Asserts that the prefix resources are in the relation databag when they change."""
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
         # Simulate adding endpoints to the relation.
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'prefix-resources': 'db1,db2',
+                        }
+                    ]
+                ),
+                'data': json.dumps(
                     {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'prefix-resources': 'db1,db2',
+                        'c759221a6c14c72a': {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'resource': DATABASE,
+                        }
                     }
-                ]),
-                'data': json.dumps({
-                    'c759221a6c14c72a': {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'resource': DATABASE,
-                    }
-                }),
+                ),
             },
         )
 
@@ -1695,19 +1809,23 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
         # Reset the mock call count.
         _on_prefix_resources_changed.reset_mock()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Set the same data in the relation (no change in the endpoints).
         self.harness.update_relation_data(
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
-                    {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'prefix-resources': 'db1,db2',
-                    }
-                ])
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'prefix-resources': 'db1,db2',
+                        }
+                    ]
+                )
             },
         )
 
@@ -1719,13 +1837,15 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             self.rel_id,
             self.provider,
             {
-                'requests': json.dumps([
-                    {
-                        'salt': 'kkkkkkkk',
-                        'request-id': 'c759221a6c14c72a',
-                        'prefix-resources': 'db1,db2,db3',
-                    }
-                ])
+                'requests': json.dumps(
+                    [
+                        {
+                            'salt': 'kkkkkkkk',
+                            'request-id': 'c759221a6c14c72a',
+                            'prefix-resources': 'db1,db2,db3',
+                        }
+                    ]
+                )
             },
         )
 
@@ -1824,6 +1944,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             previous_event_diff = self.harness.get_relation_data(self.rel_id, f'{self.app_name}/0').get(
                 'data', ''
             )
+            # between each event, the cache should be cleared.
+            build_model.cache_clear()
 
             # Test the event being emitted by the application.
             with capture_events(self.harness.charm, *all_events) as captured_events:
@@ -1832,20 +1954,24 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
                     self.provider,
                     {
                         'version': 'v1',
-                        'requests': json.dumps([
+                        'requests': json.dumps(
+                            [
+                                {
+                                    'salt': 'kkkkkkkk',
+                                    'request-id': 'c759221a6c14c72a',
+                                }
+                                | event['data']
+                            ]
+                        ),
+                        'data': json.dumps(
                             {
-                                'salt': 'kkkkkkkk',
-                                'request-id': 'c759221a6c14c72a',
+                                'c759221a6c14c72a': {
+                                    'salt': 'kkkkkkk',
+                                    'request-id': 'c759221a6c14c72a',
+                                    'resource': DATABASE,
+                                }
                             }
-                            | event['data']
-                        ]),
-                        'data': json.dumps({
-                            'c759221a6c14c72a': {
-                                'salt': 'kkkkkkk',
-                                'request-id': 'c759221a6c14c72a',
-                                'resource': DATABASE,
-                            }
-                        }),
+                        ),
                     },
                 )
 
@@ -1866,18 +1992,22 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
             # Test the event being emitted by the unit.
             with capture_events(self.harness.charm, *all_events) as captured_events:
+                # between each event, the cache should be cleared.
+                build_model.cache_clear()
                 self.harness.update_relation_data(
                     self.rel_id,
                     f'{self.provider}/0',
                     {
                         'version': 'v1',
-                        'requests': json.dumps([
-                            {
-                                'salt': 'kkkkkkkk',
-                                'request-id': 'c759221a6c14c72a',
-                            }
-                            | event['data']
-                        ]),
+                        'requests': json.dumps(
+                            [
+                                {
+                                    'salt': 'kkkkkkkk',
+                                    'request-id': 'c759221a6c14c72a',
+                                }
+                                | event['data']
+                            ]
+                        ),
                     },
                 )
 

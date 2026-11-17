@@ -20,9 +20,9 @@ pydantic models.
 
 import copy
 import json
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from logging import getLogger
-from typing import Any
+from typing import Any, ClassVar
 
 from ops import Application, Model, Relation, Unit
 from typing_extensions import override
@@ -133,7 +133,25 @@ class AbstractRepository(ABC):
         ...
 
 
-class OpsRepository(AbstractRepository):
+class OpsRepositoryMeta(ABCMeta):
+    """Meta-class for OpsRepository.
+
+    This allows a singleton class-like interface, but creates only one repository per relation + component.
+    """
+
+    _instances: ClassVar[dict[str, SecretCache]] = {}
+
+    def __call__(
+        cls, model: Model, relation: Relation | None, component: Application | Unit, *args, **kwargs
+    ) -> SecretCache:
+        """Overload __call__ method to create the correct object."""
+        unique_name = f'{model.uuid}-{relation.id if relation else 0}{component.name.replace("/", "-")}'
+        if not cls._instances.get(unique_name, None):
+            cls._instances[unique_name] = super().__call__(model, relation, component, *args, **kwargs)
+        return cls._instances[unique_name]
+
+
+class OpsRepository(AbstractRepository, metaclass=OpsRepositoryMeta):
     """Implementation for ops repositories, with some methods left out."""
 
     SECRET_FIELD_NAME: str
