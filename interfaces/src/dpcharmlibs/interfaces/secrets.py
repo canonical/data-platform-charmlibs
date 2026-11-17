@@ -13,16 +13,20 @@
 # limitations under the License.
 """Secret + caching."""
 
-from logging import getLogger
-from typing import ClassVar
+from __future__ import annotations
 
-from ops import Model, Secret, SecretInfo
+from logging import getLogger
+from typing import TYPE_CHECKING, ClassVar
+
 from ops.model import Application, ModelError, Relation, SecretNotFoundError, Unit
 
 from dpcharmlibs.interfaces.errors import (
     SecretAlreadyExistsError,
     SecretsUnavailableError,
 )
+
+if TYPE_CHECKING:
+    from ops import Model, Secret, SecretInfo
 
 logger = getLogger(__name__)
 
@@ -163,7 +167,23 @@ class CachedSecret:
         self._secret_uri = None
 
 
-class SecretCache:
+class SecretCacheMeta(type):
+    """Meta-class for SecretCache.
+
+    This allows a singleton class-like interface, but creates only one secret cache per model + component.
+    """
+
+    _instances: ClassVar[dict[str, SecretCache]] = {}
+
+    def __call__(cls, model: Model, component: Application | Unit, *args, **kwargs) -> SecretCache:
+        """Overload __call__ method to create the correct object."""
+        unique_name = f'{model.uuid}-{component.name.replace("/", "-")}'
+        if not cls._instances.get(unique_name, None):
+            cls._instances[unique_name] = super().__call__(model, component, *args, **kwargs)
+        return cls._instances[unique_name]
+
+
+class SecretCache(metaclass=SecretCacheMeta):
     """A data structure storing CachedSecret objects."""
 
     def __init__(self, model: Model, component: Application | Unit):

@@ -39,6 +39,7 @@ from dpcharmlibs.interfaces import (
     ResourceRequirerEventHandler,
     ResourceRequiresEvents,
     SecretGroup,
+    build_model,
 )
 from dpcharmlibs.interfaces.repository_interfaces import (
     TCommon,
@@ -700,6 +701,9 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
         self.harness.update_relation_data(self.rel_id, self.app_name, {'data': '{}'})
         _on_resource_entity_requested.reset_mock()
 
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
+
         # Simulate the request of a new group plus extra roles.
         self.harness.update_relation_data(
             self.rel_id,
@@ -758,6 +762,8 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
         # Reset the relation data keys + mock count
         self.harness.update_relation_data(self.rel_id, self.app_name, {'data': '{}'})
         _on_resource_entity_requested.reset_mock()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Simulate the request of a new group plus extra roles.
         self.harness.update_relation_data(
@@ -804,6 +810,9 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
             },
         )
 
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
+
         # Simulate the request to update user permissions.
         self.harness.update_relation_data(
             self.rel_id,
@@ -848,6 +857,9 @@ class TestDatabaseProvides(DataProvidesBaseTests, unittest.TestCase):
                 ]),
             },
         )
+
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Simulate the request to update user permissions.
         self.harness.update_relation_data(
@@ -1275,6 +1287,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             'username': 'test-username',
             'password': 'test-password',
         })
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         self.harness.update_relation_data(
             self.rel_id,
@@ -1360,6 +1374,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             'entity-name': 'test-username',
             'entity-password': 'test-password',
         })
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         self.harness.update_relation_data(
             self.rel_id,
@@ -1541,6 +1557,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     @patch.object(charm, '_on_endpoints_changed')
     def test_on_endpoints_changed(self, _on_endpoints_changed):
         """Asserts the correct call to on_endpoints_changed."""
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
         # Simulate adding endpoints to the relation.
         self.harness.update_relation_data(
             self.rel_id,
@@ -1573,6 +1591,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
         # Reset the mock call count.
         _on_endpoints_changed.reset_mock()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Set the same data in the relation (no change in the endpoints).
         self.harness.update_relation_data(
@@ -1591,6 +1611,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
         # Assert the hook was not called again.
         _on_endpoints_changed.assert_not_called()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Then, change the endpoints in the relation.
         self.harness.update_relation_data(
@@ -1613,6 +1635,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     @patch.object(charm, '_on_read_only_endpoints_changed')
     def test_on_read_only_endpoints_changed(self, _on_read_only_endpoints_changed):
         """Asserts the correct call to on_read_only_endpoints_changed."""
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
         # Simulate adding endpoints to the relation.
         self.harness.update_relation_data(
             self.rel_id,
@@ -1663,6 +1687,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
         # Assert the hook was not called again.
         _on_read_only_endpoints_changed.assert_not_called()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Then, change the endpoints in the relation.
         self.harness.update_relation_data(
@@ -1691,6 +1717,10 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             'password': 'beef',
             'uris': 'host1:port,host2:port',
         })
+
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
+
         # Simulate setting the additional fields.
         self.harness.update_relation_data(
             self.rel_id,
@@ -1729,6 +1759,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
     @pytest.mark.usefixtures('only_with_juju_secrets')
     def test_on_prefix_resources_changed(self, _on_prefix_resources_changed):
         """Asserts that the prefix resources are in the relation databag when they change."""
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
         # Simulate adding endpoints to the relation.
         self.harness.update_relation_data(
             self.rel_id,
@@ -1761,6 +1793,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
         # Reset the mock call count.
         _on_prefix_resources_changed.reset_mock()
+        # between each event, the cache should be cleared.
+        build_model.cache_clear()
 
         # Set the same data in the relation (no change in the endpoints).
         self.harness.update_relation_data(
@@ -1890,6 +1924,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
             previous_event_diff = self.harness.get_relation_data(self.rel_id, f'{self.app_name}/0').get(
                 'data', ''
             )
+            # between each event, the cache should be cleared.
+            build_model.cache_clear()
 
             # Test the event being emitted by the application.
             with capture_events(self.harness.charm, *all_events) as captured_events:
@@ -1932,6 +1968,8 @@ class TestDatabaseRequires(DataRequirerBaseTests, unittest.TestCase):
 
             # Test the event being emitted by the unit.
             with capture_events(self.harness.charm, *all_events) as captured_events:
+                # between each event, the cache should be cleared.
+                build_model.cache_clear()
                 self.harness.update_relation_data(
                     self.rel_id,
                     f'{self.provider}/0',

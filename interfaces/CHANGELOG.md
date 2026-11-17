@@ -1,3 +1,8 @@
+# 1.3.0 - 17 November 2026
+
+* Improvement: Add metaclasses and caching on secrets, repositories and models
+* bump dependencies
+
 # 1.2.2 - 22 September 2026
 
 * Bugfix: Writing `None` or an empty string now deletes the field, matching Juju and ops behavior
